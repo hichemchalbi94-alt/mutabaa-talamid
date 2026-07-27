@@ -1,0 +1,19 @@
+{
+  "name": "متابعة التلاميذ والاستخلاص",
+  "short_name": "متابعة التلاميذ",
+  "description": "تطبيقة لمتابعة التلاميذ، دفتر المناداة، والاستخلاص الشهري",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F2EA",
+  "theme_color": "#12312B",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

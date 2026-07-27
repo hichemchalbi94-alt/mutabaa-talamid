@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>متابعة التلاميذ والاستخلاص</title>
+<link rel="manifest" href="./manifest.json"/>
+<meta name="theme-color" content="#12312B"/>
+<link rel="icon" href="./icon-192.png" type="image/png"/>
+<link rel="apple-touch-icon" href="./icon-192.png"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="متابعة التلاميذ"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --ink:#12312B;
+    --ink-soft:#3C5750;
+    --bg:#F5F2EA;
+    --card:#FFFFFF;
+    --sage:#CFE3D6;
+    --sage-ink:#215E45;
+    --amber:#E7A93C;
+    --amber-bg:#FBEDD3;
+    --alert:#C1483A;
+    --alert-bg:#F8DAD5;
+    --line:#E4DFD1;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;vertical-align:middle;}
+
+  header{
+    position:sticky;top:0;z-index:30;background:var(--ink);color:var(--bg);
+    padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.15);
+  }
+  header h1{margin:0 0 10px;font-size:18px;font-weight:900;display:flex;align-items:center;gap:8px;}
+  .stats-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
+  .stat-chip{
+    flex:1;min-width:100px;background:rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;text-align:center;
+  }
+  .stat-chip .amount{font-size:17px;font-weight:900;color:var(--amber);}
+  .stat-chip .label{font-size:11px;opacity:.75;margin-top:2px;}
+
+  main{max-width:720px;margin:0 auto;padding:14px 12px 100px;}
+
+  .levels-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .level-chip{
+    background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;
+    display:flex;gap:6px;align-items:center;color:var(--ink-soft);
+  }
+  .level-chip b{color:var(--ink);}
+
+  .add-form{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:16px;
+    display:flex;gap:8px;flex-wrap:wrap;
+  }
+  .add-form input, .add-form select{
+    flex:1;min-width:120px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+    font-family:'Tajawal',sans-serif;font-size:14px;background:#fff;
+  }
+  .add-form button{
+    background:var(--ink);color:var(--bg);border:none;border-radius:10px;padding:10px 18px;font-weight:700;
+    font-size:14px;cursor:pointer;white-space:nowrap;
+  }
+  .add-form button:active{transform:scale(.96);}
+
+  .filter-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;}
+  .filter-tab{
+    padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;background:transparent;border:1px solid var(--line);
+    color:var(--ink-soft);cursor:pointer;white-space:nowrap;
+  }
+  .filter-tab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+
+  .student-card{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:10px;
+    position:relative;
+  }
+  .student-card.paid{background:var(--sage);border-color:#b7d6c3;}
+  .student-card.alert{border-color:var(--alert);box-shadow:0 0 0 2px rgba(193,72,58,.15) inset;}
+
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .name-block{display:flex;flex-direction:column;gap:2px;}
+  .name-block .name{font-weight:900;font-size:15.5px;}
+  .name-block .level{font-size:12px;color:var(--ink-soft);}
+  .alert-badge{
+    display:none;align-items:center;gap:4px;background:var(--alert-bg);color:var(--alert);
+    font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px;
+  }
+  .student-card.alert .alert-badge{display:flex;}
+
+  .del-btn{background:none;border:none;color:var(--ink-soft);opacity:.5;cursor:pointer;font-size:16px;padding:2px;}
+  .del-btn:hover{opacity:1;color:var(--alert);}
+
+  .card-body{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .metric{
+    flex:1;min-width:88px;background:rgba(18,49,43,.04);border-radius:10px;padding:8px 10px;text-align:center;
+  }
+  .student-card.paid .metric{background:rgba(255,255,255,.55);}
+  .metric .num{font-size:16px;font-weight:900;}
+  .metric .lbl{font-size:10.5px;color:var(--ink-soft);margin-top:1px;}
+
+  .card-actions{display:flex;gap:8px;margin-top:10px;}
+  .action-btn{
+    flex:1;padding:9px;border-radius:10px;border:none;font-weight:700;font-size:13px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:5px;
+  }
+  .action-btn.session{background:var(--amber-bg);color:#8a5a10;}
+  .action-btn.pay{background:var(--sage-ink);color:#fff;}
+  .action-btn:active{transform:scale(.96);}
+
+  .last-pay{font-size:11px;color:var(--ink-soft);margin-top:8px;}
+
+  .empty{text-align:center;color:var(--ink-soft);padding:40px 10px;font-size:14px;}
+
+  @media (min-width:640px){
+    .student-card{padding:16px 18px;}
+  }
+
+  .view-tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .view-tab{
+    flex:1;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--card);
+    font-weight:700;font-size:13.5px;color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .view-tab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+
+  .section-form{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:14px;
+    display:flex;gap:8px;flex-wrap:wrap;
+  }
+  .section-form select, .section-form input{
+    flex:1;min-width:110px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+    font-family:'Tajawal',sans-serif;font-size:13.5px;background:#fff;
+  }
+  .studydays-box{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:14px;
+  }
+  .studydays-box .title{font-size:12px;font-weight:800;color:var(--ink-soft);margin-bottom:8px;}
+  .day-toggle{
+    display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;
+    border:1px solid var(--line);font-size:12px;font-weight:700;margin:3px;cursor:pointer;color:var(--ink-soft);background:#fff;
+  }
+  .day-toggle.on{background:var(--sage);border-color:#b7d6c3;color:var(--sage-ink);}
+
+  .week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
+  .week-nav button{
+    background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:700;
+    font-size:12.5px;cursor:pointer;color:var(--ink);
+  }
+  .week-nav .range{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+
+  .attendance-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;}
+  table.attendance{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.attendance th, table.attendance td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:center;white-space:nowrap;}
+  table.attendance th{background:var(--ink);color:var(--bg);font-weight:700;font-size:11.5px;}
+  table.attendance td:first-child, table.attendance th:first-child{text-align:right;padding-right:12px;position:sticky;right:0;background:var(--card);}
+  table.attendance th:first-child{background:var(--ink);}
+  .att-cell{
+    width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink-soft);
+  }
+  .att-cell.present{background:var(--sage);border-color:#b7d6c3;color:var(--sage-ink);}
+  .att-cell.absent{background:var(--alert-bg);border-color:#e6b7ae;color:var(--alert);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="material-symbols-outlined">school</span> متابعة التلاميذ والاستخلاص</h1>
+  <div class="stats-row">
+    <div class="stat-chip"><div class="amount" id="todayAmount">0</div><div class="label">مستخلص اليوم</div></div>
+    <div class="stat-chip"><div class="amount" id="monthAmount">0</div><div class="label">مستخلص هذا الشهر</div></div>
+    <div class="stat-chip"><div class="amount" id="yearAmount">0</div><div class="label">مستخلص هذه السنة</div></div>
+  </div>
+</header>
+
+<main>
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="students"><span class="material-symbols-outlined" style="font-size:18px;">groups</span> التلاميذ</button>
+    <button class="view-tab" data-view="attendance"><span class="material-symbols-outlined" style="font-size:18px;">fact_check</span> الأجندا (بونتاج الحصص + الاستخلاص)</button>
+    <button class="view-tab" data-view="groups"><span class="material-symbols-outlined" style="font-size:18px;">payments</span> الاستخلاص حسب الأقسام</button>
+    <button class="view-tab" data-view="finance"><span class="material-symbols-outlined" style="font-size:18px;">calculate</span> الحساب الشهري</button>
+  </div>
+
+  <div id="studentsView">
+  <div class="levels-row" id="levelsRow"></div>
+
+  <div class="add-form">
+    <input id="newName" type="text" placeholder="اسم التلميذ"/>
+    <select id="newLevel">
+      <option value="الأولى ثانوي">الأولى ثانوي</option>
+      <option value="الثانية ثانوي">الثانية ثانوي</option>
+      <option value="الثالثة ثانوي">الثالثة ثانوي</option>
+      <option value="الباكالوريا">الباكالوريا</option>
+    </select>
+    <select id="newSubject">
+      <option value="فرنسية">فرنسية</option>
+      <option value="رياضيات">رياضيات</option>
+      <option value="فلسفة">فلسفة</option>
+      <option value="عربية">عربية</option>
+    </select>
+    <input id="newTeacher" type="text" placeholder="اسم الأستاذ"/>
+    <button id="addBtn">+ إضافة تلميذ</button>
+  </div>
+
+  <div class="filter-tabs" id="filterTabs"></div>
+  <div class="filter-tabs" id="subjectTabs"></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+    <select id="teacherFilter" style="padding:7px 10px;border-radius:999px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:12px;background:#fff;">
+      <option value="الكل">كل الأساتذة</option>
+    </select>
+    <button id="printBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <span class="material-symbols-outlined" style="font-size:16px;">print</span> طباعة قائمة المستخلصين
+    </button>
+  </div>
+
+  <div id="studentsList"></div>
+  </div>
+
+  <div id="attendanceView" style="display:none;">
+    <div class="section-form">
+      <select id="attLevel"><option value="">اختر المستوى</option></select>
+      <select id="attSubject"><option value="">اختر المادة</option></select>
+      <input id="attTeacher" list="attTeacherList" placeholder="اسم الأستاذ" autocomplete="off"/>
+      <datalist id="attTeacherList"></datalist>
+    </div>
+
+    <div id="attSectionBody" style="display:none;">
+      <div class="section-form" style="margin-bottom:14px;">
+        <input id="attNewStudentName" type="text" placeholder="اسم تلميذ جديد لهذا القسم"/>
+        <button id="attAddStudentBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;">+ إضافة للقسم</button>
+      </div>
+
+      <div class="studydays-box">
+        <div class="title">أيام الدراسة لهذا القسم</div>
+        <div id="studyDaysPicker"></div>
+      </div>
+
+      <div class="week-nav">
+        <button id="prevWeekBtn">‹ الأسبوع السابق</button>
+        <div class="range" id="weekRange"></div>
+        <button id="nextWeekBtn">الأسبوع التالي ›</button>
+      </div>
+
+      <div class="attendance-wrap">
+        <table class="attendance" id="attendanceTable"></table>
+      </div>
+    </div>
+    <div class="empty" id="attEmptyMsg">اختر المستوى والمادة، وأدخل اسم الأستاذ لعرض أو إنشاء قسم</div>
+  </div>
+
+  <div id="groupsView" style="display:none;">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <button id="printGroupsBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:5px;">
+        <span class="material-symbols-outlined" style="font-size:16px;">print</span> طباعة تقرير الأقسام
+      </button>
+    </div>
+    <div class="attendance-wrap">
+      <table class="attendance" id="groupsTable"></table>
+    </div>
+  </div>
+
+  <div id="financeView" style="display:none;">
+    <div class="studydays-box">
+      <div class="title">إعدادات التسعيرة لكل مستوى (السعر الجملي، حصة الأستاذ، حصة المؤسسة)</div>
+      <div id="pricingForm"></div>
+    </div>
+
+    <div class="section-form" style="align-items:center;">
+      <label style="font-size:13px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">الشهر:</label>
+      <input id="financeMonth" type="month"/>
+      <button id="printFinanceBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:13.5px;cursor:pointer;display:flex;align-items:center;gap:5px;">
+        <span class="material-symbols-outlined" style="font-size:16px;">print</span> طباعة كشف الحساب
+      </button>
+    </div>
+
+    <div class="stats-row" style="margin-bottom:14px;">
+      <div class="stat-chip" style="background:rgba(18,49,43,.06);">
+        <div class="amount" id="financeTotalCollected" style="color:var(--sage-ink);">0</div>
+        <div class="label" style="color:var(--ink-soft);opacity:1;">مجموع المستخلص هذا الشهر</div>
+      </div>
+      <div class="stat-chip" style="background:rgba(18,49,43,.06);">
+        <div class="amount" id="financeTotalTeacher" style="color:var(--amber);">0</div>
+        <div class="label" style="color:var(--ink-soft);opacity:1;">حصة الأساتذة</div>
+      </div>
+      <div class="stat-chip" style="background:rgba(18,49,43,.06);">
+        <div class="amount" id="financeTotalInstitution" style="color:var(--alert);">0</div>
+        <div class="label" style="color:var(--ink-soft);opacity:1;">حصة المؤسسة</div>
+      </div>
+    </div>
+
+    <div class="attendance-wrap">
+      <table class="attendance" id="financeTable"></table>
+    </div>
+  </div>
+</main>
+
+<script>
+const LEVELS = ["الأولى ثانوي","الثانية ثانوي","الثالثة ثانوي","الباكالوريا"];
+const SUBJECTS = ["فرنسية","رياضيات","فلسفة","عربية"];
+let students = [];
+let currentFilter = "الكل";
+let currentSubjectFilter = "الكل";
+let currentTeacherFilter = "الكل";
+
+function uid(){ return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+function localDateStr(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function todayStr(){ return localDateStr(new Date()); }
+
+function load(){
+  try{
+    const raw = localStorage.getItem('students');
+    students = raw ? JSON.parse(raw) : [];
+  }catch(e){ students = []; }
+  render();
+}
+function save(){
+  try{ localStorage.setItem('students', JSON.stringify(students)); }
+  catch(e){ console.error('فشل الحفظ', e); alert('تعذّر حفظ البيانات — تأكد من أن المتصفح يسمح بالتخزين المحلي'); }
+}
+
+function fmt(n){
+  return new Intl.NumberFormat('ar-TN', {maximumFractionDigits:2}).format(n);
+}
+
+function computeTotals(){
+  const today = todayStr();
+  const month = today.slice(0,7);
+  const year = today.slice(0,4);
+  let t=0,m=0,y=0;
+  students.forEach(s => (s.payments||[]).forEach(p => {
+    if(p.date === today) t += p.amount;
+    if(p.date.slice(0,7) === month) m += p.amount;
+    if(p.date.slice(0,4) === year) y += p.amount;
+  }));
+  return {t,m,y};
+}
+
+function renderLevels(){
+  const counts = {};
+  LEVELS.forEach(l => counts[l] = 0);
+  students.forEach(s => { counts[s.level] = (counts[s.level]||0) + 1; });
+  const row = document.getElementById('levelsRow');
+  row.innerHTML = LEVELS.filter(l=>counts[l]>0).map(l =>
+    `<div class="level-chip">${l} <b>${counts[l]}</b></div>`
+  ).join('') || '<div class="level-chip" style="opacity:.6">لا يوجد تلاميذ بعد</div>';
+}
+
+function renderFilterTabs(){
+  const tabs = ["الكل", ...LEVELS, "منبّه فقط"];
+  const el = document.getElementById('filterTabs');
+  el.innerHTML = tabs.map(t =>
+    `<button class="filter-tab ${t===currentFilter?'active':''}" data-tab="${t}">${t}</button>`
+  ).join('');
+  el.querySelectorAll('.filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => { currentFilter = btn.dataset.tab; render(); });
+  });
+}
+
+function renderSubjectTabs(){
+  const tabs = ["الكل", ...SUBJECTS];
+  const el = document.getElementById('subjectTabs');
+  el.innerHTML = tabs.map(t =>
+    `<button class="filter-tab ${t===currentSubjectFilter?'active':''}" data-tab="${t}">${t}</button>`
+  ).join('');
+  el.querySelectorAll('.filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => { currentSubjectFilter = btn.dataset.tab; render(); });
+  });
+}
+
+function renderTeacherFilter(){
+  const teachers = [...new Set(students.map(s => s.teacher).filter(Boolean))].sort();
+  const sel = document.getElementById('teacherFilter');
+  const prev = currentTeacherFilter;
+  sel.innerHTML = '<option value="الكل">كل الأساتذة</option>' +
+    teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+  sel.value = teachers.includes(prev) ? prev : "الكل";
+  currentTeacherFilter = sel.value;
+}
+
+function renderStudents(){
+  const list = document.getElementById('studentsList');
+  let filtered = students;
+  if(currentFilter === "منبّه فقط") filtered = students.filter(s => (s.sessionsSinceLastPayment||0) >= 4);
+  else if(currentFilter !== "الكل") filtered = students.filter(s => s.level === currentFilter);
+  if(currentSubjectFilter !== "الكل") filtered = filtered.filter(s => s.subject === currentSubjectFilter);
+  if(currentTeacherFilter !== "الكل") filtered = filtered.filter(s => s.teacher === currentTeacherFilter);
+
+  if(filtered.length === 0){
+    list.innerHTML = '<div class="empty">لا يوجد تلاميذ في هذه الفئة</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(s => {
+    const alert = (s.sessionsSinceLastPayment||0) >= 4;
+    const paidUp = (s.sessionsSinceLastPayment||0) === 0 && (s.payments||[]).length > 0;
+    const payCount = (s.payments||[]).length;
+    const lastPay = payCount ? s.payments[payCount-1] : null;
+    return `
+    <div class="student-card ${paidUp?'paid':''} ${alert?'alert':''}" data-id="${s.id}">
+      <div class="card-top">
+        <div class="name-block">
+          <div class="name">${s.name}</div>
+          <div class="level">${s.level} · ${s.subject||''}${s.teacher ? ' · أ. ' + s.teacher : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="alert-badge"><span class="material-symbols-outlined" style="font-size:14px;">warning</span> ٤ حصص دون استخلاص</div>
+          <button class="del-btn" data-action="delete"><span class="material-symbols-outlined">close</span></button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="metric"><div class="num">${s.sessionsTotal||0}</div><div class="lbl">حصص منجزة</div></div>
+        <div class="metric"><div class="num">${s.sessionsSinceLastPayment||0}</div><div class="lbl">منذ آخر استخلاص</div></div>
+        <div class="metric"><div class="num">${payCount}</div><div class="lbl">عدد مرات الاستخلاص</div></div>
+      </div>
+      <div class="card-actions">
+        <button class="action-btn session" data-action="session"><span class="material-symbols-outlined" style="font-size:16px;">add_circle</span> حصة جديدة</button>
+        <button class="action-btn pay" data-action="pay"><span class="material-symbols-outlined" style="font-size:16px;">payments</span> تسجيل استخلاص</button>
+      </div>
+      ${lastPay ? `<div class="last-pay">آخر استخلاص: ${lastPay.date} — ${fmt(lastPay.amount)} د</div>` : ''}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.student-card').forEach(card => {
+    const id = card.dataset.id;
+    card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteStudent(id));
+    card.querySelector('[data-action="session"]').addEventListener('click', () => addSession(id));
+    card.querySelector('[data-action="pay"]').addEventListener('click', () => registerPayment(id));
+  });
+}
+
+function renderTotals(){
+  const {t,m,y} = computeTotals();
+  document.getElementById('todayAmount').textContent = fmt(t);
+  document.getElementById('monthAmount').textContent = fmt(m);
+  document.getElementById('yearAmount').textContent = fmt(y);
+}
+
+function render(){
+  renderLevels();
+  renderFilterTabs();
+  renderSubjectTabs();
+  renderTeacherFilter();
+  renderStudents();
+  renderTotals();
+}
+
+function addSession(id){
+  const s = students.find(x => x.id === id);
+  if(!s) return;
+  s.sessionsTotal = (s.sessionsTotal||0) + 1;
+  s.sessionsSinceLastPayment = (s.sessionsSinceLastPayment||0) + 1;
+  save(); render();
+}
+
+function registerPayment(id){
+  const s = students.find(x => x.id === id);
+  if(!s) return;
+  const amountStr = prompt(`المبلغ المستخلص من ${s.name} (بالدينار):`);
+  if(amountStr === null) return;
+  const amount = parseFloat(amountStr.replace(',', '.'));
+  if(isNaN(amount) || amount <= 0){ alert('الرجاء إدخال مبلغ صحيح'); return; }
+  s.payments = s.payments || [];
+  s.payments.push({date: todayStr(), amount});
+  s.sessionsSinceLastPayment = 0;
+  save(); render();
+}
+
+function deleteStudent(id){
+  const s = students.find(x => x.id === id);
+  if(!s) return;
+  if(!confirm(`حذف ${s.name} نهائيًا؟`)) return;
+  students = students.filter(x => x.id !== id);
+  save(); render();
+}
+
+document.getElementById('addBtn').addEventListener('click', () => {
+  const name = document.getElementById('newName').value.trim();
+  const level = document.getElementById('newLevel').value;
+  const subject = document.getElementById('newSubject').value;
+  const teacher = document.getElementById('newTeacher').value.trim();
+  if(!name){ alert('الرجاء إدخال اسم التلميذ'); return; }
+  students.push({ id: uid(), name, level, subject, teacher, sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
+  document.getElementById('newName').value = '';
+  document.getElementById('newTeacher').value = '';
+  save(); render();
+});
+document.getElementById('newName').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') document.getElementById('addBtn').click();
+});
+
+document.getElementById('teacherFilter').addEventListener('change', (e) => {
+  currentTeacherFilter = e.target.value; render();
+});
+
+function printPaidList(){
+  let paid = students.filter(s => (s.payments||[]).length > 0);
+  if(currentFilter !== "الكل" && currentFilter !== "منبّه فقط") paid = paid.filter(s => s.level === currentFilter);
+  if(currentSubjectFilter !== "الكل") paid = paid.filter(s => s.subject === currentSubjectFilter);
+  if(currentTeacherFilter !== "الكل") paid = paid.filter(s => s.teacher === currentTeacherFilter);
+
+  if(paid.length === 0){ alert('لا يوجد تلاميذ مستخلصون ضمن هذا الفلتر'); return; }
+
+  const dateNow = new Date().toLocaleDateString('ar-TN');
+  const subjectLabel = currentSubjectFilter === "الكل" ? "كل المواد" : currentSubjectFilter;
+  const teacherLabel = currentTeacherFilter === "الكل" ? "كل الأساتذة" : currentTeacherFilter;
+  const levelLabel = (currentFilter === "الكل" || currentFilter === "منبّه فقط") ? "كل المستويات" : currentFilter;
+
+  let total = 0;
+  const rows = paid.map(s => {
+    const sum = (s.payments||[]).reduce((a,p) => a + p.amount, 0);
+    total += sum;
+    const last = s.payments[s.payments.length - 1];
+    return `<tr>
+      <td>${s.name}</td>
+      <td>${s.level}</td>
+      <td>${s.subject||''}</td>
+      <td>${s.teacher||''}</td>
+      <td>${s.payments.length}</td>
+      <td>${fmt(sum)} د</td>
+      <td>${last ? last.date : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+    <title>قائمة المستخلصين</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Tajawal',sans-serif;padding:24px;color:#12312B;}
+      h1{font-size:19px;margin-bottom:2px;}
+      .meta{font-size:12.5px;color:#3C5750;margin-bottom:16px;}
+      table{width:100%;border-collapse:collapse;font-size:13px;}
+      th,td{border:1px solid #ccc;padding:7px 8px;text-align:right;}
+      th{background:#12312B;color:#F5F2EA;}
+      tr:nth-child(even){background:#F5F2EA;}
+      tfoot td{font-weight:900;background:#CFE3D6;}
+      @media print{ @page{ margin:16mm; } }
+    </style></head><body>
+    <h1>قائمة التلاميذ المستخلصين</h1>
+    <div class="meta">التاريخ: ${dateNow} &nbsp;|&nbsp; المستوى: ${levelLabel} &nbsp;|&nbsp; المادة: ${subjectLabel} &nbsp;|&nbsp; الأستاذ: ${teacherLabel}</div>
+    <table>
+      <thead><tr><th>الاسم</th><th>المستوى</th><th>المادة</th><th>الأستاذ</th><th>عدد مرات الاستخلاص</th><th>المجموع</th><th>آخر استخلاص</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="5">المجموع الكلي</td><td>${fmt(total)} د</td><td></td></tr></tfoot>
+    </table>
+    <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+    </body></html>
+  `);
+  win.document.close();
+}
+document.getElementById('printBtn').addEventListener('click', printPaidList);
+
+/* ===== دفتر المناداة ===== */
+const DAY_NAMES = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+let sections = {}; // sectionKey -> { studyDays:[0..6] }
+let attendance = {}; // sectionKey -> { 'YYYY-MM-DD': { studentId: 'present'|'absent' } }
+let weekOffset = 0; // 0 = current week
+
+function loadAttendanceData(){
+  try{
+    const s = localStorage.getItem('sections');
+    sections = s ? JSON.parse(s) : {};
+  }catch(e){ sections = {}; }
+  try{
+    const a = localStorage.getItem('attendance');
+    attendance = a ? JSON.parse(a) : {};
+  }catch(e){ attendance = {}; }
+}
+function saveSections(){ try{ localStorage.setItem('sections', JSON.stringify(sections)); }catch(e){} }
+function saveAttendance(){ try{ localStorage.setItem('attendance', JSON.stringify(attendance)); }catch(e){} }
+
+function normTeacher(t){ return (t && String(t).trim()) ? String(t).trim() : 'غير محدّد'; }
+function sectionKey(level, subject, teacher){ return level + '|' + subject + '|' + normTeacher(teacher); }
+
+function fillSelect(id, values, placeholder){
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>` + values.map(v => `<option value="${v}">${v}</option>`).join('');
+  if(values.includes(cur)) sel.value = cur;
+}
+
+function populateAttendanceSelectors(){
+  fillSelect('attLevel', LEVELS, 'اختر المستوى');
+  fillSelect('attSubject', SUBJECTS, 'اختر المادة');
+  const teachers = [...new Set(students.map(s => normTeacher(s.teacher)))].sort();
+  document.getElementById('attTeacherList').innerHTML = teachers.map(t => `<option value="${t}"></option>`).join('');
+}
+
+function getWeekStart(offset){
+  // Sunday of the target week (Sunday..Saturday)
+  const now = new Date();
+  const day = now.getDay(); // 0=Sunday
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() - day + offset*7);
+  sunday.setHours(0,0,0,0);
+  return sunday;
+}
+function dateStr(d){ return localDateStr(d); }
+function fmtDayDate(d){ return d.toLocaleDateString('ar-TN', {day:'2-digit', month:'2-digit'}); }
+
+function countPresentSessions(key, studentId){
+  const dates = attendance[key] || {};
+  let count = 0;
+  Object.keys(dates).forEach(d => { if(dates[d][studentId] === 'present') count++; });
+  return count;
+}
+
+function renderAttendanceView(){
+  const level = document.getElementById('attLevel').value;
+  const subject = document.getElementById('attSubject').value;
+  const teacherRaw = document.getElementById('attTeacher').value.trim();
+  const body = document.getElementById('attSectionBody');
+  const emptyMsg = document.getElementById('attEmptyMsg');
+
+  if(!level || !subject || !teacherRaw){
+    body.style.display = 'none';
+    emptyMsg.style.display = 'block';
+    emptyMsg.textContent = 'اختر المستوى والمادة، وأدخل اسم الأستاذ لعرض أو إنشاء قسم';
+    return;
+  }
+  const teacher = normTeacher(teacherRaw);
+  const key = sectionKey(level, subject, teacher);
+  const roster = students.filter(s => s.level===level && s.subject===subject && normTeacher(s.teacher)===teacher);
+
+  emptyMsg.style.display = 'none';
+  body.style.display = 'block';
+
+  if(!sections[key]) sections[key] = { studyDays: [0,1,2,3,4,5,6] };
+  const studyDays = sections[key].studyDays;
+
+  // Study days picker
+  const picker = document.getElementById('studyDaysPicker');
+  picker.innerHTML = DAY_NAMES.map((name, idx) =>
+    `<span class="day-toggle ${studyDays.includes(idx)?'on':''}" data-day="${idx}">${name}</span>`
+  ).join('');
+  picker.querySelectorAll('.day-toggle').forEach(el => {
+    el.addEventListener('click', () => {
+      const d = parseInt(el.dataset.day);
+      const i = sections[key].studyDays.indexOf(d);
+      if(i >= 0) sections[key].studyDays.splice(i,1); else sections[key].studyDays.push(d);
+      sections[key].studyDays.sort();
+      saveSections();
+      renderAttendanceView();
+    });
+  });
+
+  // Week range
+  const weekStart = getWeekStart(weekOffset);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6);
+  document.getElementById('weekRange').textContent = `${fmtDayDate(weekStart)} — ${fmtDayDate(weekEnd)}`;
+
+  if(roster.length === 0){
+    document.getElementById('attendanceTable').innerHTML = '<tr><td style="padding:16px;text-align:center;">لا يوجد تلاميذ في هذا القسم بعد — أضف أول تلميذ أعلاه</td></tr>';
+    return;
+  }
+
+  const activeDays = studyDays.slice().sort((a,b)=>a-b);
+  if(activeDays.length === 0){
+    document.getElementById('attendanceTable').innerHTML = '<tr><td style="padding:16px;">حدّد أيام الدراسة لهذا القسم أولًا</td></tr>';
+    return;
+  }
+
+  if(!attendance[key]) attendance[key] = {};
+
+  const dayDates = activeDays.map(d => {
+    const dt = new Date(weekStart); dt.setDate(weekStart.getDate()+d);
+    return { idx:d, date: dateStr(dt), label: DAY_NAMES[d], sub: fmtDayDate(dt) };
+  });
+
+  let html = '<thead><tr><th>التلميذ</th>' + dayDates.map(d => `<th>${d.label}<br><span style="opacity:.7;font-weight:400;">${d.sub}</span></th>`).join('') + '<th>الحصص المؤكدة</th><th>تاريخ الاستخلاص</th></tr></thead><tbody>';
+  html += roster.map(s => {
+    const cells = dayDates.map(d => {
+      const state = (attendance[key][d.date] || {})[s.id] || '';
+      const cls = state === 'present' ? 'present' : state === 'absent' ? 'absent' : '';
+      const icon = state === 'present' ? '✓' : state === 'absent' ? '✕' : '';
+      return `<td><span class="att-cell ${cls}" data-sid="${s.id}" data-date="${d.date}">${icon}</span></td>`;
+    }).join('');
+    const presentCount = countPresentSessions(key, s.id);
+    const payCount = (s.payments||[]).length;
+    const lastPay = payCount ? s.payments[payCount-1] : null;
+    return `<tr>
+      <td>${s.name}</td>${cells}
+      <td>${presentCount}</td>
+      <td>
+        <button class="pay-cell" data-sid="${s.id}" style="background:${lastPay?'var(--sage)':'var(--amber-bg)'};border:1px solid ${lastPay?'#b7d6c3':'#f0d9a8'};border-radius:8px;padding:5px 8px;font-family:'Tajawal',sans-serif;font-size:11.5px;font-weight:700;color:${lastPay?'var(--sage-ink)':'#8a5a10'};cursor:pointer;white-space:nowrap;">
+          ${lastPay ? lastPay.date : 'تسجيل استخلاص'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  html += '</tbody>';
+
+  const table = document.getElementById('attendanceTable');
+  table.innerHTML = html;
+  table.querySelectorAll('.pay-cell').forEach(btn => {
+    btn.addEventListener('click', () => { registerPayment(btn.dataset.sid); renderAttendanceView(); });
+  });
+  table.querySelectorAll('.att-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const sid = cell.dataset.sid, d = cell.dataset.date;
+      if(!attendance[key][d]) attendance[key][d] = {};
+      const cur = attendance[key][d][sid] || '';
+      const next = cur === '' ? 'present' : cur === 'present' ? 'absent' : '';
+      if(next === '') delete attendance[key][d][sid]; else attendance[key][d][sid] = next;
+      saveAttendance();
+      renderAttendanceView();
+    });
+  });
+}
+
+document.getElementById('attLevel').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
+document.getElementById('attSubject').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
+document.getElementById('attTeacher').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
+document.getElementById('attTeacher').addEventListener('input', () => { renderAttendanceView(); });
+document.getElementById('prevWeekBtn').addEventListener('click', () => { weekOffset--; renderAttendanceView(); });
+document.getElementById('nextWeekBtn').addEventListener('click', () => { weekOffset++; renderAttendanceView(); });
+
+function addStudentFromAttendance(){
+  const level = document.getElementById('attLevel').value;
+  const subject = document.getElementById('attSubject').value;
+  const teacherRaw = document.getElementById('attTeacher').value.trim();
+  const nameInput = document.getElementById('attNewStudentName');
+  const name = nameInput.value.trim();
+  if(!level || !subject || !teacherRaw){ alert('اختر المستوى والمادة، وأدخل اسم الأستاذ أولًا'); return; }
+  if(!name){ alert('الرجاء إدخال اسم التلميذ'); return; }
+  students.push({ id: uid(), name, level, subject, teacher: normTeacher(teacherRaw), sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
+  nameInput.value = '';
+  save();
+  renderAttendanceView();
+}
+document.getElementById('attAddStudentBtn').addEventListener('click', addStudentFromAttendance);
+document.getElementById('attNewStudentName').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') addStudentFromAttendance();
+});
+
+/* ===== الاستخلاص حسب الأقسام ===== */
+function computeGroups(){
+  const today = todayStr();
+  const month = today.slice(0,7);
+  const year = today.slice(0,4);
+  const groups = {};
+  students.forEach(s => {
+    const key = sectionKey(s.level, s.subject||'', s.teacher);
+    if(!groups[key]) groups[key] = {
+      level:s.level, subject:s.subject||'', teacher:normTeacher(s.teacher),
+      studentsCount:0, paidCount:0, today:0, month:0, year:0, total:0
+    };
+    const g = groups[key];
+    g.studentsCount++;
+    const payments = s.payments || [];
+    if(payments.length > 0) g.paidCount++;
+    payments.forEach(p => {
+      g.total += p.amount;
+      if(p.date === today) g.today += p.amount;
+      if(p.date.slice(0,7) === month) g.month += p.amount;
+      if(p.date.slice(0,4) === year) g.year += p.amount;
+    });
+  });
+  return Object.values(groups).sort((a,b) => b.total - a.total);
+}
+
+function renderGroupsView(){
+  const groups = computeGroups();
+  const table = document.getElementById('groupsTable');
+  if(groups.length === 0){
+    table.innerHTML = '<tr><td style="padding:16px;">لا يوجد تلاميذ مسجّلون بعد</td></tr>';
+    return;
+  }
+  let html = '<thead><tr><th>القسم</th><th>عدد التلاميذ</th><th>مستخلصون</th><th>اليوم</th><th>الشهر</th><th>السنة</th><th>المجموع الكلي</th></tr></thead><tbody>';
+  html += groups.map(g => `<tr>
+    <td style="text-align:right;">${g.level} · ${g.subject} · أ. ${g.teacher}</td>
+    <td>${g.studentsCount}</td>
+    <td>${g.paidCount}/${g.studentsCount}</td>
+    <td>${fmt(g.today)}</td>
+    <td>${fmt(g.month)}</td>
+    <td>${fmt(g.year)}</td>
+    <td style="font-weight:800;">${fmt(g.total)} د</td>
+  </tr>`).join('');
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function printGroupsReport(){
+  const groups = computeGroups();
+  if(groups.length === 0){ alert('لا يوجد تلاميذ مسجّلون بعد'); return; }
+  const dateNow = new Date().toLocaleDateString('ar-TN');
+  const rows = groups.map(g => `<tr>
+    <td>${g.level} · ${g.subject} · أ. ${g.teacher}</td>
+    <td>${g.studentsCount}</td>
+    <td>${g.paidCount}/${g.studentsCount}</td>
+    <td>${fmt(g.today)}</td>
+    <td>${fmt(g.month)}</td>
+    <td>${fmt(g.year)}</td>
+    <td>${fmt(g.total)} د</td>
+  </tr>`).join('');
+  const grandTotal = groups.reduce((a,g)=>a+g.total,0);
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+    <title>تقرير الاستخلاص حسب الأقسام</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Tajawal',sans-serif;padding:24px;color:#12312B;}
+      h1{font-size:19px;margin-bottom:2px;}
+      .meta{font-size:12.5px;color:#3C5750;margin-bottom:16px;}
+      table{width:100%;border-collapse:collapse;font-size:12.5px;}
+      th,td{border:1px solid #ccc;padding:7px 8px;text-align:center;}
+      td:first-child{text-align:right;}
+      th{background:#12312B;color:#F5F2EA;}
+      tr:nth-child(even){background:#F5F2EA;}
+      tfoot td{font-weight:900;background:#CFE3D6;}
+      @media print{ @page{ margin:16mm; } }
+    </style></head><body>
+    <h1>تقرير الاستخلاص حسب الأقسام</h1>
+    <div class="meta">التاريخ: ${dateNow}</div>
+    <table>
+      <thead><tr><th>القسم</th><th>عدد التلاميذ</th><th>مستخلصون</th><th>اليوم</th><th>الشهر</th><th>السنة</th><th>المجموع الكلي</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="6">المجموع العام</td><td>${fmt(grandTotal)} د</td></tr></tfoot>
+    </table>
+    <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+    </body></html>
+  `);
+  win.document.close();
+}
+document.getElementById('printGroupsBtn').addEventListener('click', printGroupsReport);
+
+/* ===== الحساب الشهري (قسمة الأستاذ / المؤسسة) ===== */
+let pricing = {}; // level -> { price, teacher, institution }
+
+function defaultPricing(){
+  const p = {};
+  LEVELS.forEach(l => { p[l] = { price:0, teacher:0, institution:0 }; });
+  p["الباكالوريا"] = { price:65, teacher:50, institution:15 };
+  return p;
+}
+
+function loadPricing(){
+  try{
+    const r = localStorage.getItem('pricing');
+    pricing = r ? JSON.parse(r) : defaultPricing();
+  }catch(e){ pricing = defaultPricing(); }
+  LEVELS.forEach(l => { if(!pricing[l]) pricing[l] = { price:0, teacher:0, institution:0 }; });
+}
+function savePricing(){ try{ localStorage.setItem('pricing', JSON.stringify(pricing)); }catch(e){} }
+
+function renderPricingForm(){
+  const el = document.getElementById('pricingForm');
+  el.innerHTML = LEVELS.map(l => {
+    const p = pricing[l] || {price:0,teacher:0,institution:0};
+    return `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+      <div style="min-width:110px;font-size:12.5px;font-weight:700;">${l}</div>
+      <input type="number" step="0.5" min="0" data-level="${l}" data-field="price" value="${p.price}" placeholder="السعر الجملي" style="width:100px;padding:8px;border-radius:8px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:13px;"/>
+      <input type="number" step="0.5" min="0" data-level="${l}" data-field="teacher" value="${p.teacher}" placeholder="حصة الأستاذ" style="width:100px;padding:8px;border-radius:8px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:13px;"/>
+      <input type="number" step="0.5" min="0" data-level="${l}" data-field="institution" value="${p.institution}" placeholder="حصة المؤسسة" style="width:100px;padding:8px;border-radius:8px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:13px;"/>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const l = inp.dataset.level, f = inp.dataset.field;
+      const v = parseFloat(inp.value.replace(',', '.'));
+      pricing[l][f] = isNaN(v) ? 0 : v;
+      savePricing();
+      renderFinanceView();
+    });
+  });
+}
+
+function currentMonthStr(){ return todayStr().slice(0,7); }
+
+function computeFinance(month){
+  const groups = {};
+  students.forEach(s => {
+    const key = sectionKey(s.level, s.subject||'', s.teacher);
+    if(!groups[key]) groups[key] = {
+      level:s.level, subject:s.subject||'', teacher:normTeacher(s.teacher), collected:0
+    };
+    (s.payments||[]).forEach(p => {
+      if(p.date.slice(0,7) === month) groups[key].collected += p.amount;
+    });
+  });
+  const rows = Object.values(groups).filter(g => g.collected > 0).map(g => {
+    const p = pricing[g.level] || {price:0,teacher:0,institution:0};
+    const hasRate = p.price > 0;
+    const teacherShare = hasRate ? g.collected * (p.teacher / p.price) : 0;
+    const institutionShare = hasRate ? g.collected * (p.institution / p.price) : 0;
+    return { ...g, teacherShare, institutionShare, hasRate };
+  }).sort((a,b) => b.collected - a.collected);
+  const totals = rows.reduce((acc,r) => {
+    acc.collected += r.collected; acc.teacher += r.teacherShare; acc.institution += r.institutionShare;
+    return acc;
+  }, {collected:0, teacher:0, institution:0});
+  return { rows, totals };
+}
+
+function renderFinanceView(){
+  const monthInput = document.getElementById('financeMonth');
+  if(!monthInput.value) monthInput.value = currentMonthStr();
+  const month = monthInput.value;
+  const { rows, totals } = computeFinance(month);
+
+  document.getElementById('financeTotalCollected').textContent = fmt(totals.collected);
+  document.getElementById('financeTotalTeacher').textContent = fmt(totals.teacher);
+  document.getElementById('financeTotalInstitution').textContent = fmt(totals.institution);
+
+  const table = document.getElementById('financeTable');
+  if(rows.length === 0){
+    table.innerHTML = '<tr><td style="padding:16px;">لا يوجد مبالغ مستخلصة في هذا الشهر</td></tr>';
+    return;
+  }
+  let html = '<thead><tr><th>القسم</th><th>المستخلص</th><th>حصة الأستاذ</th><th>حصة المؤسسة</th></tr></thead><tbody>';
+  html += rows.map(r => `<tr>
+    <td style="text-align:right;">${r.level} · ${r.subject} · أ. ${r.teacher}${!r.hasRate ? ' <span style="color:var(--alert);font-size:11px;">(لم تُحدَّد تسعيرة)</span>' : ''}</td>
+    <td>${fmt(r.collected)} د</td>
+    <td>${fmt(r.teacherShare)} د</td>
+    <td>${fmt(r.institutionShare)} د</td>
+  </tr>`).join('');
+  html += `</tbody><tfoot><tr><td style="font-weight:900;">المجموع</td><td style="font-weight:900;">${fmt(totals.collected)} د</td><td style="font-weight:900;">${fmt(totals.teacher)} د</td><td style="font-weight:900;">${fmt(totals.institution)} د</td></tr></tfoot>`;
+  table.innerHTML = html;
+}
+
+document.getElementById('financeMonth').addEventListener('change', renderFinanceView);
+
+function printFinanceReport(){
+  const month = document.getElementById('financeMonth').value || currentMonthStr();
+  const { rows, totals } = computeFinance(month);
+  if(rows.length === 0){ alert('لا يوجد مبالغ مستخلصة في هذا الشهر'); return; }
+  const rowsHtml = rows.map(r => `<tr>
+    <td>${r.level} · ${r.subject} · أ. ${r.teacher}</td>
+    <td>${fmt(r.collected)} د</td>
+    <td>${fmt(r.teacherShare)} د</td>
+    <td>${fmt(r.institutionShare)} د</td>
+  </tr>`).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+    <title>كشف الحساب الشهري</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Tajawal',sans-serif;padding:24px;color:#12312B;}
+      h1{font-size:19px;margin-bottom:2px;}
+      .meta{font-size:12.5px;color:#3C5750;margin-bottom:16px;}
+      table{width:100%;border-collapse:collapse;font-size:12.5px;}
+      th,td{border:1px solid #ccc;padding:7px 8px;text-align:center;}
+      td:first-child{text-align:right;}
+      th{background:#12312B;color:#F5F2EA;}
+      tr:nth-child(even){background:#F5F2EA;}
+      tfoot td{font-weight:900;background:#CFE3D6;}
+      @media print{ @page{ margin:16mm; } }
+    </style></head><body>
+    <h1>كشف الحساب الشهري — قسمة الأستاذ والمؤسسة</h1>
+    <div class="meta">الشهر: ${month}</div>
+    <table>
+      <thead><tr><th>القسم</th><th>المستخلص</th><th>حصة الأستاذ</th><th>حصة المؤسسة</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot><tr><td>المجموع</td><td>${fmt(totals.collected)} د</td><td>${fmt(totals.teacher)} د</td><td>${fmt(totals.institution)} د</td></tr></tfoot>
+    </table>
+    <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+    </body></html>
+  `);
+  win.document.close();
+}
+document.getElementById('printFinanceBtn').addEventListener('click', printFinanceReport);
+
+document.querySelectorAll('.view-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const view = tab.dataset.view;
+    document.getElementById('studentsView').style.display = view === 'students' ? 'block' : 'none';
+    document.getElementById('attendanceView').style.display = view === 'attendance' ? 'block' : 'none';
+    document.getElementById('groupsView').style.display = view === 'groups' ? 'block' : 'none';
+    document.getElementById('financeView').style.display = view === 'finance' ? 'block' : 'none';
+    if(view === 'attendance'){ populateAttendanceSelectors(); renderAttendanceView(); }
+    if(view === 'groups'){ renderGroupsView(); }
+    if(view === 'finance'){ renderPricingForm(); renderFinanceView(); }
+  });
+});
+
+load();
+loadAttendanceData();
+loadPricing();
+renderPricingForm();
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
