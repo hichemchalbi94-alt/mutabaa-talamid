@@ -185,6 +185,8 @@
     <select id="newSubject"></select>
     <input id="newTeacher" type="text" list="newTeacherList" placeholder="اسم الأستاذ" autocomplete="off"/>
     <datalist id="newTeacherList"></datalist>
+    <input id="newLocation" type="text" list="newLocationList" placeholder="المكان/المنطقة" autocomplete="off"/>
+    <datalist id="newLocationList"></datalist>
     <button id="addBtn">+ إضافة تلميذ</button>
   </div>
   <div id="newTeacherHint" style="display:none;font-size:12px;color:var(--ink-soft);background:rgba(18,49,43,.06);border-radius:8px;padding:8px 12px;margin:-8px 0 14px;"></div>
@@ -194,6 +196,9 @@
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
     <select id="teacherFilter" style="padding:7px 10px;border-radius:999px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:12px;background:#fff;">
       <option value="الكل">كل الأساتذة</option>
+    </select>
+    <select id="locationFilter" style="padding:7px 10px;border-radius:999px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:12px;background:#fff;">
+      <option value="الكل">كل الأماكن</option>
     </select>
     <button id="printBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:5px;">
       <span class="material-symbols-outlined" style="font-size:16px;">print</span> طباعة قائمة المستخلصين
@@ -209,6 +214,8 @@
       <select id="attSubject"><option value="">اختر المادة</option></select>
       <input id="attTeacher" list="attTeacherList" placeholder="اسم الأستاذ" autocomplete="off"/>
       <datalist id="attTeacherList"></datalist>
+      <input id="attLocation" list="attLocationList" placeholder="المكان/المنطقة" autocomplete="off"/>
+      <datalist id="attLocationList"></datalist>
     </div>
 
     <div id="attSectionBody" style="display:none;">
@@ -283,11 +290,12 @@
 
 <script>
 const LEVELS = ["سنة سابعة","سنة ثامنة","سنة تاسعة","الأولى ثانوي","الثانية ثانوي","الثالثة ثانوي","باكالوريا رياضيات","باكالوريا علوم","باكالوريا آداب","باكالوريا إعلامية","باكالوريا تقنية","باكالوريا إقتصاد"];
-const SUBJECTS = ["رياضيات","عربية","فرنسية","أنجليزية","تقنية","إعلامية","إقتصاد","فيزياء"];
+const SUBJECTS = ["رياضيات","عربية","فرنسية","أنجليزية","تقنية","إعلامية","إقتصاد","فيزياء","فلسفة"];
 let students = [];
 let currentFilter = "الكل";
 let currentSubjectFilter = "الكل";
 let currentTeacherFilter = "الكل";
+let currentLocationFilter = "الكل";
 
 function uid(){ return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 function localDateStr(d){
@@ -369,6 +377,16 @@ function renderTeacherFilter(){
   currentTeacherFilter = sel.value;
 }
 
+function renderLocationFilter(){
+  const locations = [...new Set(students.map(s => s.location).filter(Boolean))].sort();
+  const sel = document.getElementById('locationFilter');
+  const prev = currentLocationFilter;
+  sel.innerHTML = '<option value="الكل">كل الأماكن</option>' +
+    locations.map(l => `<option value="${l}">${l}</option>`).join('');
+  sel.value = locations.includes(prev) ? prev : "الكل";
+  currentLocationFilter = sel.value;
+}
+
 function renderStudents(){
   const list = document.getElementById('studentsList');
   let filtered = students;
@@ -376,6 +394,7 @@ function renderStudents(){
   else if(currentFilter !== "الكل") filtered = students.filter(s => s.level === currentFilter);
   if(currentSubjectFilter !== "الكل") filtered = filtered.filter(s => s.subject === currentSubjectFilter);
   if(currentTeacherFilter !== "الكل") filtered = filtered.filter(s => s.teacher === currentTeacherFilter);
+  if(currentLocationFilter !== "الكل") filtered = filtered.filter(s => s.location === currentLocationFilter);
 
   if(filtered.length === 0){
     list.innerHTML = '<div class="empty">لا يوجد تلاميذ في هذه الفئة</div>';
@@ -392,7 +411,7 @@ function renderStudents(){
       <div class="card-top">
         <div class="name-block">
           <div class="name">${s.name}</div>
-          <div class="level">${s.level} · ${s.subject||''}${s.teacher ? ' · أ. ' + s.teacher : ''}</div>
+          <div class="level">${s.level} · ${s.subject||''}${s.teacher ? ' · أ. ' + s.teacher : ''}${s.location ? ' · ' + s.location : ''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <div class="alert-badge"><span class="material-symbols-outlined" style="font-size:14px;">warning</span> ٤ حصص دون استخلاص</div>
@@ -432,6 +451,7 @@ function render(){
   renderFilterTabs();
   renderSubjectTabs();
   renderTeacherFilter();
+  renderLocationFilter();
   renderNewTeacherList();
   renderStudents();
   renderTotals();
@@ -440,30 +460,37 @@ function render(){
 function renderNewTeacherList(){
   const teachers = [...new Set(students.map(s => normTeacher(s.teacher)).filter(t => t !== 'غير محدّد'))].sort();
   document.getElementById('newTeacherList').innerHTML = teachers.map(t => `<option value="${t}"></option>`).join('');
+  const locations = [...new Set(students.map(s => normLocation(s.location)).filter(l => l !== 'غير محدّد'))].sort();
+  document.getElementById('newLocationList').innerHTML = locations.map(l => `<option value="${l}"></option>`).join('');
 }
 
 function updateNewTeacherHint(){
   const hint = document.getElementById('newTeacherHint');
   const raw = document.getElementById('newTeacher').value.trim();
-  if(!raw){ hint.style.display = 'none'; return; }
+  const locRaw = document.getElementById('newLocation').value.trim();
+  if(!raw && !locRaw){ hint.style.display = 'none'; return; }
   const level = document.getElementById('newLevel').value;
   const subject = document.getElementById('newSubject').value;
   const t = normTeacher(raw);
-  const sameGroup = students.filter(s => normTeacher(s.teacher) === t && s.level === level && s.subject === subject);
-  const otherGroups = students.filter(s => normTeacher(s.teacher) === t && (s.level !== level || s.subject !== subject));
+  const loc = normLocation(locRaw);
+  const matchTeacher = s => raw ? normTeacher(s.teacher) === t : true;
+  const matchLoc = s => locRaw ? normLocation(s.location) === loc : true;
+  const sameGroup = students.filter(s => matchTeacher(s) && matchLoc(s) && s.level === level && s.subject === subject);
+  const otherGroups = students.filter(s => matchTeacher(s) && matchLoc(s) && (s.level !== level || s.subject !== subject));
   if(sameGroup.length === 0 && otherGroups.length === 0){ hint.style.display = 'none'; return; }
   let msg = '';
   if(sameGroup.length){
     msg += `👥 نفس المجموعة (${level} · ${subject}): ${sameGroup.map(s => s.name).join('، ')}`;
   }
   if(otherGroups.length){
-    const groupsSet = [...new Set(otherGroups.map(s => s.level + ' · ' + s.subject))];
-    msg += (msg ? '<br>' : '') + `📌 هذا الأستاذ مرتبط أيضًا بـ: ${groupsSet.join(' | ')}`;
+    const groupsSet = [...new Set(otherGroups.map(s => s.level + ' · ' + s.subject + (s.location ? ' · ' + s.location : '')))];
+    msg += (msg ? '<br>' : '') + `📌 مرتبط أيضًا بـ: ${groupsSet.join(' | ')}`;
   }
   hint.innerHTML = msg;
   hint.style.display = 'block';
 }
 document.getElementById('newTeacher').addEventListener('input', updateNewTeacherHint);
+document.getElementById('newLocation').addEventListener('input', updateNewTeacherHint);
 document.getElementById('newLevel').addEventListener('change', updateNewTeacherHint);
 document.getElementById('newSubject').addEventListener('change', updateNewTeacherHint);
 
@@ -501,10 +528,12 @@ document.getElementById('addBtn').addEventListener('click', () => {
   const level = document.getElementById('newLevel').value;
   const subject = document.getElementById('newSubject').value;
   const teacher = document.getElementById('newTeacher').value.trim();
+  const location = document.getElementById('newLocation').value.trim();
   if(!name){ alert('الرجاء إدخال اسم التلميذ'); return; }
-  students.push({ id: uid(), name, level, subject, teacher, sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
+  students.push({ id: uid(), name, level, subject, teacher, location, sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
   document.getElementById('newName').value = '';
   document.getElementById('newTeacher').value = '';
+  document.getElementById('newLocation').value = '';
   document.getElementById('newTeacherHint').style.display = 'none';
   save(); render();
 });
@@ -515,18 +544,23 @@ document.getElementById('newName').addEventListener('keydown', (e) => {
 document.getElementById('teacherFilter').addEventListener('change', (e) => {
   currentTeacherFilter = e.target.value; render();
 });
+document.getElementById('locationFilter').addEventListener('change', (e) => {
+  currentLocationFilter = e.target.value; render();
+});
 
 function printPaidList(){
   let paid = students.filter(s => (s.payments||[]).length > 0);
   if(currentFilter !== "الكل" && currentFilter !== "منبّه فقط") paid = paid.filter(s => s.level === currentFilter);
   if(currentSubjectFilter !== "الكل") paid = paid.filter(s => s.subject === currentSubjectFilter);
   if(currentTeacherFilter !== "الكل") paid = paid.filter(s => s.teacher === currentTeacherFilter);
+  if(currentLocationFilter !== "الكل") paid = paid.filter(s => s.location === currentLocationFilter);
 
   if(paid.length === 0){ alert('لا يوجد تلاميذ مستخلصون ضمن هذا الفلتر'); return; }
 
   const dateNow = new Date().toLocaleDateString('ar-TN');
   const subjectLabel = currentSubjectFilter === "الكل" ? "كل المواد" : currentSubjectFilter;
   const teacherLabel = currentTeacherFilter === "الكل" ? "كل الأساتذة" : currentTeacherFilter;
+  const locationLabel = currentLocationFilter === "الكل" ? "كل الأماكن" : currentLocationFilter;
   const levelLabel = (currentFilter === "الكل" || currentFilter === "منبّه فقط") ? "كل المستويات" : currentFilter;
 
   let total = 0;
@@ -539,6 +573,7 @@ function printPaidList(){
       <td>${s.level}</td>
       <td>${s.subject||''}</td>
       <td>${s.teacher||''}</td>
+      <td>${s.location||''}</td>
       <td>${s.payments.length}</td>
       <td>${fmt(sum)} د</td>
       <td>${last ? last.date : ''}</td>
@@ -562,11 +597,11 @@ function printPaidList(){
       @media print{ @page{ margin:16mm; } }
     </style></head><body>
     <h1>قائمة التلاميذ المستخلصين</h1>
-    <div class="meta">التاريخ: ${dateNow} &nbsp;|&nbsp; المستوى: ${levelLabel} &nbsp;|&nbsp; المادة: ${subjectLabel} &nbsp;|&nbsp; الأستاذ: ${teacherLabel}</div>
+    <div class="meta">التاريخ: ${dateNow} &nbsp;|&nbsp; المستوى: ${levelLabel} &nbsp;|&nbsp; المادة: ${subjectLabel} &nbsp;|&nbsp; الأستاذ: ${teacherLabel} &nbsp;|&nbsp; المكان: ${locationLabel}</div>
     <table>
-      <thead><tr><th>الاسم</th><th>المستوى</th><th>المادة</th><th>الأستاذ</th><th>عدد مرات الاستخلاص</th><th>المجموع</th><th>آخر استخلاص</th></tr></thead>
+      <thead><tr><th>الاسم</th><th>المستوى</th><th>المادة</th><th>الأستاذ</th><th>المكان</th><th>عدد مرات الاستخلاص</th><th>المجموع</th><th>آخر استخلاص</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><td colspan="5">المجموع الكلي</td><td>${fmt(total)} د</td><td></td></tr></tfoot>
+      <tfoot><tr><td colspan="6">المجموع الكلي</td><td>${fmt(total)} د</td><td></td></tr></tfoot>
     </table>
     <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
     </body></html>
@@ -595,7 +630,8 @@ function saveSections(){ try{ localStorage.setItem('sections', JSON.stringify(se
 function saveAttendance(){ try{ localStorage.setItem('attendance', JSON.stringify(attendance)); }catch(e){} }
 
 function normTeacher(t){ return (t && String(t).trim()) ? String(t).trim() : 'غير محدّد'; }
-function sectionKey(level, subject, teacher){ return level + '|' + subject + '|' + normTeacher(teacher); }
+function normLocation(l){ return (l && String(l).trim()) ? String(l).trim() : 'غير محدّد'; }
+function sectionKey(level, subject, teacher, location){ return level + '|' + subject + '|' + normTeacher(teacher) + '|' + normLocation(location); }
 
 function fillSelect(id, values, placeholder){
   const sel = document.getElementById(id);
@@ -609,6 +645,8 @@ function populateAttendanceSelectors(){
   fillSelect('attSubject', SUBJECTS, 'اختر المادة');
   const teachers = [...new Set(students.map(s => normTeacher(s.teacher)))].sort();
   document.getElementById('attTeacherList').innerHTML = teachers.map(t => `<option value="${t}"></option>`).join('');
+  const locations = [...new Set(students.map(s => normLocation(s.location)))].sort();
+  document.getElementById('attLocationList').innerHTML = locations.map(l => `<option value="${l}"></option>`).join('');
 }
 
 function getWeekStart(offset){
@@ -634,6 +672,7 @@ function renderAttendanceView(){
   const level = document.getElementById('attLevel').value;
   const subject = document.getElementById('attSubject').value;
   const teacherRaw = document.getElementById('attTeacher').value.trim();
+  const locationRaw = document.getElementById('attLocation').value.trim();
   const body = document.getElementById('attSectionBody');
   const emptyMsg = document.getElementById('attEmptyMsg');
 
@@ -644,8 +683,9 @@ function renderAttendanceView(){
     return;
   }
   const teacher = normTeacher(teacherRaw);
-  const key = sectionKey(level, subject, teacher);
-  const roster = students.filter(s => s.level===level && s.subject===subject && normTeacher(s.teacher)===teacher);
+  const location = normLocation(locationRaw);
+  const key = sectionKey(level, subject, teacher, location);
+  const roster = students.filter(s => s.level===level && s.subject===subject && normTeacher(s.teacher)===teacher && normLocation(s.location)===location);
 
   emptyMsg.style.display = 'none';
   body.style.display = 'block';
@@ -737,6 +777,8 @@ document.getElementById('attLevel').addEventListener('change', () => { weekOffse
 document.getElementById('attSubject').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
 document.getElementById('attTeacher').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
 document.getElementById('attTeacher').addEventListener('input', () => { renderAttendanceView(); });
+document.getElementById('attLocation').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
+document.getElementById('attLocation').addEventListener('input', () => { renderAttendanceView(); });
 document.getElementById('prevWeekBtn').addEventListener('click', () => { weekOffset--; renderAttendanceView(); });
 document.getElementById('nextWeekBtn').addEventListener('click', () => { weekOffset++; renderAttendanceView(); });
 
@@ -744,11 +786,12 @@ function addStudentFromAttendance(){
   const level = document.getElementById('attLevel').value;
   const subject = document.getElementById('attSubject').value;
   const teacherRaw = document.getElementById('attTeacher').value.trim();
+  const locationRaw = document.getElementById('attLocation').value.trim();
   const nameInput = document.getElementById('attNewStudentName');
   const name = nameInput.value.trim();
   if(!level || !subject || !teacherRaw){ alert('اختر المستوى والمادة، وأدخل اسم الأستاذ أولًا'); return; }
   if(!name){ alert('الرجاء إدخال اسم التلميذ'); return; }
-  students.push({ id: uid(), name, level, subject, teacher: normTeacher(teacherRaw), sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
+  students.push({ id: uid(), name, level, subject, teacher: normTeacher(teacherRaw), location: normLocation(locationRaw), sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
   nameInput.value = '';
   save();
   renderAttendanceView();
@@ -765,9 +808,9 @@ function computeGroups(){
   const year = today.slice(0,4);
   const groups = {};
   students.forEach(s => {
-    const key = sectionKey(s.level, s.subject||'', s.teacher);
+    const key = sectionKey(s.level, s.subject||'', s.teacher, s.location);
     if(!groups[key]) groups[key] = {
-      level:s.level, subject:s.subject||'', teacher:normTeacher(s.teacher),
+      level:s.level, subject:s.subject||'', teacher:normTeacher(s.teacher), location:normLocation(s.location),
       studentsCount:0, paidCount:0, today:0, month:0, year:0, total:0
     };
     const g = groups[key];
@@ -793,7 +836,7 @@ function renderGroupsView(){
   }
   let html = '<thead><tr><th>القسم</th><th>عدد التلاميذ</th><th>مستخلصون</th><th>اليوم</th><th>الشهر</th><th>السنة</th><th>المجموع الكلي</th></tr></thead><tbody>';
   html += groups.map(g => `<tr>
-    <td style="text-align:right;">${g.level} · ${g.subject} · أ. ${g.teacher}</td>
+    <td style="text-align:right;">${g.level} · ${g.subject} · أ. ${g.teacher}${g.location !== 'غير محدّد' ? ' · ' + g.location : ''}</td>
     <td>${g.studentsCount}</td>
     <td>${g.paidCount}/${g.studentsCount}</td>
     <td>${fmt(g.today)}</td>
@@ -810,7 +853,7 @@ function printGroupsReport(){
   if(groups.length === 0){ alert('لا يوجد تلاميذ مسجّلون بعد'); return; }
   const dateNow = new Date().toLocaleDateString('ar-TN');
   const rows = groups.map(g => `<tr>
-    <td>${g.level} · ${g.subject} · أ. ${g.teacher}</td>
+    <td>${g.level} · ${g.subject} · أ. ${g.teacher}${g.location !== 'غير محدّد' ? ' · ' + g.location : ''}</td>
     <td>${g.studentsCount}</td>
     <td>${g.paidCount}/${g.studentsCount}</td>
     <td>${fmt(g.today)}</td>
@@ -899,9 +942,9 @@ function currentMonthStr(){ return todayStr().slice(0,7); }
 function computeFinance(month){
   const groups = {};
   students.forEach(s => {
-    const key = sectionKey(s.level, s.subject||'', s.teacher);
+    const key = sectionKey(s.level, s.subject||'', s.teacher, s.location);
     if(!groups[key]) groups[key] = {
-      level:s.level, subject:s.subject||'', teacher:normTeacher(s.teacher), collected:0
+      level:s.level, subject:s.subject||'', teacher:normTeacher(s.teacher), location:normLocation(s.location), collected:0
     };
     (s.payments||[]).forEach(p => {
       if(p.date.slice(0,7) === month) groups[key].collected += p.amount;
@@ -938,7 +981,7 @@ function renderFinanceView(){
   }
   let html = '<thead><tr><th>القسم</th><th>المستخلص</th><th>حصة الأستاذ</th><th>حصة المؤسسة</th></tr></thead><tbody>';
   html += rows.map(r => `<tr>
-    <td style="text-align:right;">${r.level} · ${r.subject} · أ. ${r.teacher}${!r.hasRate ? ' <span style="color:var(--alert);font-size:11px;">(لم تُحدَّد تسعيرة)</span>' : ''}</td>
+    <td style="text-align:right;">${r.level} · ${r.subject} · أ. ${r.teacher}${r.location !== 'غير محدّد' ? ' · ' + r.location : ''}${!r.hasRate ? ' <span style="color:var(--alert);font-size:11px;">(لم تُحدَّد تسعيرة)</span>' : ''}</td>
     <td>${fmt(r.collected)} د</td>
     <td>${fmt(r.teacherShare)} د</td>
     <td>${fmt(r.institutionShare)} د</td>
@@ -954,7 +997,7 @@ function printFinanceReport(){
   const { rows, totals } = computeFinance(month);
   if(rows.length === 0){ alert('لا يوجد مبالغ مستخلصة في هذا الشهر'); return; }
   const rowsHtml = rows.map(r => `<tr>
-    <td>${r.level} · ${r.subject} · أ. ${r.teacher}</td>
+    <td>${r.level} · ${r.subject} · أ. ${r.teacher}${r.location !== 'غير محدّد' ? ' · ' + r.location : ''}</td>
     <td>${fmt(r.collected)} د</td>
     <td>${fmt(r.teacherShare)} د</td>
     <td>${fmt(r.institutionShare)} د</td>
