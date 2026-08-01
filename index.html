@@ -179,6 +179,17 @@
   </div>
 </header>
 
+<div id="reviewBanner" style="display:none;background:var(--amber-bg);border-bottom:1px solid #f0d9a8;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+  <div style="font-size:12.5px;color:#8a5a10;display:flex;align-items:center;gap:6px;">
+    <span class="material-symbols-outlined" style="font-size:17px;">event_repeat</span>
+    وقت مراجعة قائمة التلاميذ — تأكد من التلاميذ الجدد والمنسحبين
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button id="reviewLaterBtn" style="background:none;border:none;color:#8a5a10;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;">لاحقًا</button>
+    <button id="reviewDoneBtn" style="background:#8a5a10;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">تمت المراجعة</button>
+  </div>
+</div>
+
 <main>
   <div class="view-tabs">
     <button class="view-tab active" data-view="students"><span class="material-symbols-outlined" style="font-size:18px;">groups</span> التلاميذ</button>
@@ -360,17 +371,44 @@ async function decryptState(payload, key){
   return JSON.parse(new TextDecoder().decode(plain));
 }
 
+let lastRosterReview = null;
+
 function applyState(state){
   students = state.students || [];
   sections = state.sections || {};
   attendance = state.attendance || {};
   pricing = state.pricing || defaultPricing();
+  lastRosterReview = state.lastRosterReview || null;
   LEVELS.forEach(l => { if(!pricing[l]) pricing[l] = { price:0, teacher:0, institution:0 }; });
 }
 
 function currentState(){
-  return { students, sections, attendance, pricing };
+  return { students, sections, attendance, pricing, lastRosterReview };
 }
+
+const ROSTER_REVIEW_INTERVAL_DAYS = 14;
+
+function checkRosterReminder(){
+  const today = todayStr();
+  if(!lastRosterReview){
+    document.getElementById('reviewBanner').style.display = 'flex';
+    return;
+  }
+  const last = new Date(lastRosterReview);
+  const now = new Date(today);
+  const diffDays = Math.floor((now - last) / (1000*60*60*24));
+  if(diffDays >= ROSTER_REVIEW_INTERVAL_DAYS){
+    document.getElementById('reviewBanner').style.display = 'flex';
+  }
+}
+document.getElementById('reviewLaterBtn').addEventListener('click', () => {
+  document.getElementById('reviewBanner').style.display = 'none';
+});
+document.getElementById('reviewDoneBtn').addEventListener('click', () => {
+  lastRosterReview = todayStr();
+  scheduleSync();
+  document.getElementById('reviewBanner').style.display = 'none';
+});
 
 function scheduleSync(){
   if(!cryptoKey || !docRef) return;
@@ -418,6 +456,7 @@ async function unlockWithPassword(password){
     renderPricingForm();
     document.getElementById('lockScreen').style.display = 'none';
     document.getElementById('appRoot').style.display = 'block';
+    checkRosterReminder();
   }catch(e){
     cryptoKey = null;
     errEl.style.display = 'block';
@@ -846,7 +885,7 @@ function renderAttendanceView(){
     return { idx:d, date: dateStr(dt), label: DAY_NAMES[d], sub: fmtDayDate(dt) };
   });
 
-  let html = '<thead><tr><th>التلميذ</th>' + dayDates.map(d => `<th>${d.label}<br><span style="opacity:.7;font-weight:400;">${d.sub}</span></th>`).join('') + '<th>الحصص المؤكدة</th><th>تاريخ الاستخلاص</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>التلميذ</th>' + dayDates.map(d => `<th>${d.label}<br><span style="opacity:.7;font-weight:400;">${d.sub}</span></th>`).join('') + '<th>الحصص المؤكدة</th><th>تاريخ الاستخلاص</th><th></th></tr></thead><tbody>';
   html += roster.map(s => {
     const cells = dayDates.map(d => {
       const state = (attendance[key][d.date] || {})[s.id] || '';
@@ -865,6 +904,11 @@ function renderAttendanceView(){
           ${lastPay ? lastPay.date : 'تسجيل استخلاص'}
         </button>
       </td>
+      <td>
+        <button class="del-cell" data-sid="${s.id}" title="حذف التلميذ" style="background:none;border:none;cursor:pointer;color:var(--alert);display:flex;align-items:center;justify-content:center;">
+          <span class="material-symbols-outlined" style="font-size:19px;">delete</span>
+        </button>
+      </td>
     </tr>`;
   }).join('');
   html += '</tbody>';
@@ -873,6 +917,9 @@ function renderAttendanceView(){
   table.innerHTML = html;
   table.querySelectorAll('.pay-cell').forEach(btn => {
     btn.addEventListener('click', () => { registerPayment(btn.dataset.sid); renderAttendanceView(); });
+  });
+  table.querySelectorAll('.del-cell').forEach(btn => {
+    btn.addEventListener('click', () => { deleteStudent(btn.dataset.sid); renderAttendanceView(); });
   });
   table.querySelectorAll('.att-cell').forEach(cell => {
     cell.addEventListener('click', () => {
