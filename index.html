@@ -159,6 +159,17 @@
 </head>
 <body>
 
+<div id="lockScreen" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
+  <span class="material-symbols-outlined" style="font-size:44px;color:var(--sage-ink);margin-bottom:10px;">lock</span>
+  <h2 style="margin:0 0 6px;font-size:19px;">متابعة التلاميذ والاستخلاص</h2>
+  <p id="lockSubtitle" style="color:var(--ink-soft);font-size:13px;margin:0 0 20px;max-width:320px;">أدخل كلمة السر للدخول — نفس الكلمة تُستعمل على كل أجهزتك (هاتف وحاسوب) لمزامنة نفس البيانات.</p>
+  <input id="lockPassword" type="password" placeholder="كلمة السر" style="width:100%;max-width:280px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:15px;text-align:center;margin-bottom:12px;"/>
+  <button id="lockSubmit" style="width:100%;max-width:280px;background:var(--ink);color:var(--bg);border:none;border-radius:12px;padding:12px;font-weight:700;font-size:14.5px;cursor:pointer;">دخول</button>
+  <p id="lockError" style="color:var(--alert);font-size:12.5px;margin-top:12px;display:none;">كلمة السر غلط، أو مشكلة في الاتصال بالنت — جرب مرة أخرى.</p>
+  <p id="lockLoading" style="color:var(--ink-soft);font-size:12.5px;margin-top:12px;display:none;">جاري التحقق...</p>
+</div>
+
+<div id="appRoot" style="display:none;">
 <header>
   <h1><span class="material-symbols-outlined">school</span> متابعة التلاميذ والاستخلاص</h1>
   <div class="stats-row">
@@ -287,7 +298,10 @@
     </div>
   </div>
 </main>
+</div>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
 const LEVELS = ["سنة سابعة","سنة ثامنة","سنة تاسعة","الأولى ثانوي","الثانية ثانوي","الثالثة ثانوي","باكالوريا رياضيات","باكالوريا علوم","باكالوريا آداب","باكالوريا إعلامية","باكالوريا تقنية","باكالوريا إقتصاد"];
 const SUBJECTS = ["رياضيات","عربية","فرنسية","أنجليزية","تقنية","إعلامية","إقتصاد","فيزياء","فلسفة"];
@@ -306,17 +320,126 @@ function localDateStr(d){
 }
 function todayStr(){ return localDateStr(new Date()); }
 
-function load(){
+/* ===== المزامنة السحابية المشفّرة بكلمة سر ===== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAiHW0sifV19scx2tnyLViWHqfq2l94gXI",
+  authDomain: "mutabaa-talamid.firebaseapp.com",
+  projectId: "mutabaa-talamid",
+  storageBucket: "mutabaa-talamid.firebasestorage.app",
+  messagingSenderId: "286556328339",
+  appId: "1:286556328339:web:01ea1523acb5fa93cf9866"
+};
+
+let cryptoKey = null;
+let db = null;
+let docRef = null;
+let syncTimer = null;
+
+function firebaseReady(){
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "PASTE_API_KEY_HERE";
+}
+
+async function deriveKey(password){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: enc.encode('mutabaa-talamid-salt-v1'), iterations: 150000, hash:'SHA-256' },
+    keyMaterial, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+  );
+}
+async function encryptState(obj, key){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(obj)));
+  return { iv: Array.from(iv), data: Array.from(new Uint8Array(cipher)) };
+}
+async function decryptState(payload, key){
+  const iv = new Uint8Array(payload.iv);
+  const data = new Uint8Array(payload.data);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, data);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+function applyState(state){
+  students = state.students || [];
+  sections = state.sections || {};
+  attendance = state.attendance || {};
+  pricing = state.pricing || defaultPricing();
+  LEVELS.forEach(l => { if(!pricing[l]) pricing[l] = { price:0, teacher:0, institution:0 }; });
+}
+
+function currentState(){
+  return { students, sections, attendance, pricing };
+}
+
+function scheduleSync(){
+  if(!cryptoKey || !docRef) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushToCloud, 600);
+}
+async function pushToCloud(){
+  if(!cryptoKey || !docRef) return;
   try{
-    const raw = localStorage.getItem('students');
-    students = raw ? JSON.parse(raw) : [];
-  }catch(e){ students = []; }
-  render();
+    const payload = await encryptState(currentState(), cryptoKey);
+    await docRef.set({ payload, updatedAt: Date.now() });
+    localStorage.setItem('mutabaa_local_cache', JSON.stringify(currentState()));
+  }catch(e){ console.error('فشل رفع البيانات للسحابة', e); }
 }
-function save(){
-  try{ localStorage.setItem('students', JSON.stringify(students)); }
-  catch(e){ console.error('فشل الحفظ', e); alert('تعذّر حفظ البيانات — تأكد من أن المتصفح يسمح بالتخزين المحلي'); }
+
+async function unlockWithPassword(password){
+  const errEl = document.getElementById('lockError');
+  const loadEl = document.getElementById('lockLoading');
+  errEl.style.display = 'none';
+  loadEl.style.display = 'block';
+  try{
+    cryptoKey = await deriveKey(password);
+    if(firebaseReady()){
+      if(!db){
+        firebase.initializeApp(FIREBASE_CONFIG);
+        db = firebase.firestore();
+      }
+      docRef = db.collection('mutabaa-app').doc('shared-data');
+      const snap = await docRef.get();
+      if(snap.exists){
+        const state = await decryptState(snap.data().payload, cryptoKey); // يفشل إذا كلمة السر غلط
+        applyState(state);
+      } else {
+        applyState({ students:[], sections:{}, attendance:{}, pricing: defaultPricing() });
+        await pushToCloud();
+      }
+    } else {
+      // إعداد Firebase لم يكتمل بعد — نعمل محليًا مؤقتًا
+      const raw = localStorage.getItem('mutabaa_local_cache');
+      applyState(raw ? JSON.parse(raw) : { students:[], sections:{}, attendance:{}, pricing: defaultPricing() });
+    }
+    document.getElementById('newLevel').innerHTML = LEVELS.map(l => `<option value="${l}">${l}</option>`).join('');
+    document.getElementById('newSubject').innerHTML = SUBJECTS.map(s => `<option value="${s}">${s}</option>`).join('');
+    render();
+    renderPricingForm();
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('appRoot').style.display = 'block';
+  }catch(e){
+    cryptoKey = null;
+    errEl.style.display = 'block';
+  }finally{
+    loadEl.style.display = 'none';
+  }
 }
+
+document.getElementById('lockSubmit').addEventListener('click', () => {
+  const pw = document.getElementById('lockPassword').value;
+  if(!pw){ return; }
+  unlockWithPassword(pw);
+});
+document.getElementById('lockPassword').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') document.getElementById('lockSubmit').click();
+});
+if(!firebaseReady()){
+  document.getElementById('lockSubtitle').textContent = 'ملاحظة: المزامنة بين الأجهزة غير مفعّلة بعد (إعداد ناقص) — البيانات تُحفظ في هذا الجهاز فقط مؤقتًا.';
+}
+
+function load(){ /* لم تعد تُستعمل مباشرة — يتم التحميل عبر unlockWithPassword */ }
+function save(){ scheduleSync(); }
 
 function fmt(n){
   return new Intl.NumberFormat('ar-TN', {maximumFractionDigits:2}).format(n);
@@ -616,18 +739,9 @@ let sections = {}; // sectionKey -> { studyDays:[0..6] }
 let attendance = {}; // sectionKey -> { 'YYYY-MM-DD': { studentId: 'present'|'absent' } }
 let weekOffset = 0; // 0 = current week
 
-function loadAttendanceData(){
-  try{
-    const s = localStorage.getItem('sections');
-    sections = s ? JSON.parse(s) : {};
-  }catch(e){ sections = {}; }
-  try{
-    const a = localStorage.getItem('attendance');
-    attendance = a ? JSON.parse(a) : {};
-  }catch(e){ attendance = {}; }
-}
-function saveSections(){ try{ localStorage.setItem('sections', JSON.stringify(sections)); }catch(e){} }
-function saveAttendance(){ try{ localStorage.setItem('attendance', JSON.stringify(attendance)); }catch(e){} }
+function loadAttendanceData(){ /* البيانات محمّلة مسبقًا عبر unlockWithPassword */ }
+function saveSections(){ scheduleSync(); }
+function saveAttendance(){ scheduleSync(); }
 
 function normTeacher(t){ return (t && String(t).trim()) ? String(t).trim() : 'غير محدّد'; }
 function normLocation(l){ return (l && String(l).trim()) ? String(l).trim() : 'غير محدّد'; }
@@ -905,14 +1019,8 @@ function defaultPricing(){
   return p;
 }
 
-function loadPricing(){
-  try{
-    const r = localStorage.getItem('pricing');
-    pricing = r ? JSON.parse(r) : defaultPricing();
-  }catch(e){ pricing = defaultPricing(); }
-  LEVELS.forEach(l => { if(!pricing[l]) pricing[l] = { price:0, teacher:0, institution:0 }; });
-}
-function savePricing(){ try{ localStorage.setItem('pricing', JSON.stringify(pricing)); }catch(e){} }
+function loadPricing(){ /* البيانات محمّلة مسبقًا عبر unlockWithPassword */ }
+function savePricing(){ scheduleSync(); }
 
 function renderPricingForm(){
   const el = document.getElementById('pricingForm');
@@ -1048,14 +1156,6 @@ document.querySelectorAll('.view-tab').forEach(tab => {
     if(view === 'finance'){ renderPricingForm(); renderFinanceView(); }
   });
 });
-
-document.getElementById('newLevel').innerHTML = LEVELS.map(l => `<option value="${l}">${l}</option>`).join('');
-document.getElementById('newSubject').innerHTML = SUBJECTS.map(s => `<option value="${s}">${s}</option>`).join('');
-
-load();
-loadAttendanceData();
-loadPricing();
-renderPricingForm();
 </script>
 </body>
 </html>
