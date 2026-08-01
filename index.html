@@ -209,6 +209,7 @@
     <datalist id="newTeacherList"></datalist>
     <input id="newLocation" type="text" list="newLocationList" placeholder="المكان/المنطقة" autocomplete="off"/>
     <datalist id="newLocationList"></datalist>
+    <input id="newPhone" type="tel" placeholder="رقم الهاتف (اختياري)"/>
     <button id="addBtn">+ إضافة تلميذ</button>
   </div>
   <div id="newTeacherHint" style="display:none;font-size:12px;color:var(--ink-soft);background:rgba(18,49,43,.06);border-radius:8px;padding:8px 12px;margin:-8px 0 14px;"></div>
@@ -256,6 +257,10 @@
         <div class="range" id="weekRange"></div>
         <button id="nextWeekBtn">الأسبوع التالي ›</button>
       </div>
+
+      <button id="printSheetBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:5px;margin-bottom:14px;">
+        <span class="material-symbols-outlined" style="font-size:16px;">print</span> طباعة/تحميل ورقة الحضور (بالشكل المعتمد)
+      </button>
 
       <div class="attendance-wrap">
         <table class="attendance" id="attendanceTable"></table>
@@ -691,11 +696,13 @@ document.getElementById('addBtn').addEventListener('click', () => {
   const subject = document.getElementById('newSubject').value;
   const teacher = document.getElementById('newTeacher').value.trim();
   const location = document.getElementById('newLocation').value.trim();
+  const phone = document.getElementById('newPhone').value.trim();
   if(!name){ alert('الرجاء إدخال اسم التلميذ'); return; }
-  students.push({ id: uid(), name, level, subject, teacher, location, sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
+  students.push({ id: uid(), name, level, subject, teacher, location, phone, sessionsTotal:0, sessionsSinceLastPayment:0, payments:[] });
   document.getElementById('newName').value = '';
   document.getElementById('newTeacher').value = '';
   document.getElementById('newLocation').value = '';
+  document.getElementById('newPhone').value = '';
   document.getElementById('newTeacherHint').style.display = 'none';
   save(); render();
 });
@@ -933,6 +940,88 @@ function renderAttendanceView(){
     });
   });
 }
+
+function printAttendanceSheet(){
+  const level = document.getElementById('attLevel').value;
+  const subject = document.getElementById('attSubject').value;
+  const teacherRaw = document.getElementById('attTeacher').value.trim();
+  const locationRaw = document.getElementById('attLocation').value.trim();
+  if(!level || !subject || !teacherRaw){ alert('اختر المستوى والمادة، وأدخل اسم الأستاذ أولًا'); return; }
+  const teacher = normTeacher(teacherRaw);
+  const location = normLocation(locationRaw);
+  const key = sectionKey(level, subject, teacher, location);
+  const roster = students.filter(s => s.level===level && s.subject===subject && normTeacher(s.teacher)===teacher && normLocation(s.location)===location);
+  if(roster.length === 0){ alert('لا يوجد تلاميذ في هذا القسم'); return; }
+
+  // كل التواريخ المسجَّلة فعليًا لهذا القسم (فيها حضور أو غياب)
+  const recorded = Object.keys(attendance[key] || {}).filter(d => {
+    const day = attendance[key][d];
+    return day && Object.values(day).some(v => v === 'present' || v === 'absent');
+  }).sort();
+
+  // تقسيم التواريخ إلى مجموعات من 4 (كل مجموعة = دورة حصص)، بحد أقصى 5 مجموعات = 20 تاريخ
+  const groups = [];
+  for(let i = 0; i < recorded.length && groups.length < 5; i += 4){
+    groups.push(recorded.slice(i, i+4));
+  }
+  while(groups.length < 5) groups.push([]); // مجموعات فارغة تُملأ يدويًا لاحقًا
+  groups.forEach(g => { while(g.length < 4) g.push(''); });
+
+  const fmtShort = (d) => d ? d.slice(8,10)+'/'+d.slice(5,7) : '';
+
+  const headerGroupsHtml = groups.map(g => {
+    const label = g.filter(Boolean).length ? (fmtShort(g[0]) + (g.filter(Boolean).length>1 ? '...' : '')) : '.......';
+    return `<th colspan="4">${label}</th>`;
+  }).join('');
+  const subHeaderHtml = groups.map(() => '<th>1</th><th>2</th><th>3</th><th>4</th>').join('');
+
+  const rowsHtml = roster.map((s, idx) => {
+    const cells = groups.map(g => g.map(d => {
+      if(!d) return '<td></td>';
+      const state = (attendance[key][d] || {})[s.id] || '';
+      const icon = state === 'present' ? '✓' : state === 'absent' ? '✕' : '';
+      return `<td>${icon}</td>`;
+    }).join('')).join('');
+    return `<tr><td>${idx+1}</td><td class="name-cell">${s.name}</td>${cells}<td>${s.phone||''}</td></tr>`;
+  }).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+    <title>ورقة الحضور</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Tajawal',sans-serif;padding:20px;color:#222;}
+      h1{text-align:center;color:#E8622C;font-size:22px;margin:4px 0 18px;}
+      .meta{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:14px;color:#333;}
+      table{width:100%;border-collapse:collapse;font-size:11px;}
+      th,td{border:1px solid #999;padding:5px 4px;text-align:center;}
+      th{background:#F7A6A0;color:#222;font-weight:700;}
+      td.name-cell{text-align:right;font-weight:600;}
+      tbody tr:nth-child(even){background:#FCE9E7;}
+      .brand{text-align:left;font-size:11px;color:#E8622C;font-style:italic;margin-top:10px;}
+      @media print{ @page{ size: landscape; margin:10mm; } }
+    </style></head><body>
+    <h1>ورقة الحضور</h1>
+    <div class="meta">
+      <div>القروب: ${location !== 'غير محدّد' ? location : '—'}</div>
+      <div>المادة: ${subject}</div>
+      <div>الأستاذ: ${teacher}</div>
+    </div>
+    <table>
+      <thead>
+        <tr><th rowspan="2">الرقم</th><th rowspan="2">اسم و لقب التلميذ</th>${headerGroupsHtml}<th rowspan="2">رقم الهاتف</th></tr>
+        <tr>${subHeaderHtml}</tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="brand">Académie Elsalama — أكاديمية السلامة</div>
+    <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+    </body></html>
+  `);
+  win.document.close();
+}
+document.getElementById('printSheetBtn').addEventListener('click', printAttendanceSheet);
 
 document.getElementById('attLevel').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
 document.getElementById('attSubject').addEventListener('change', () => { weekOffset = 0; renderAttendanceView(); });
