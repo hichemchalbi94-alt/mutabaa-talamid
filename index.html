@@ -603,7 +603,8 @@ function renderStudents(){
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <div class="alert-badge"><span class="material-symbols-outlined" style="font-size:14px;">warning</span> ${threshold} حصص دون استخلاص</div>
-          <button class="del-btn" data-action="delete"><span class="material-symbols-outlined">close</span></button>
+          <button class="del-btn" data-action="edit" title="تعديل"><span class="material-symbols-outlined">edit</span></button>
+          <button class="del-btn" data-action="delete" title="حذف"><span class="material-symbols-outlined">close</span></button>
         </div>
       </div>
       <div class="card-body">
@@ -623,9 +624,47 @@ function renderStudents(){
   list.querySelectorAll('.student-card').forEach(card => {
     const id = card.dataset.id;
     card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteStudent(id));
+    card.querySelector('[data-action="edit"]').addEventListener('click', () => editStudent(id));
     card.querySelector('[data-action="session"]').addEventListener('click', () => addSession(id));
     card.querySelector('[data-action="pay"]').addEventListener('click', () => registerPayment(id));
   });
+}
+
+function editStudent(id){
+  const s = students.find(x => x.id === id);
+  if(!s) return;
+
+  const newName = prompt('اسم التلميذ:', s.name);
+  if(newName === null) return;
+
+  const levelIdx = LEVELS.indexOf(s.level);
+  const levelChoice = prompt('المستوى (اكتب رقم من القائمة):\n' + LEVELS.map((l,i)=>`${i+1}. ${l}`).join('\n'), levelIdx>=0 ? String(levelIdx+1) : '1');
+  if(levelChoice === null) return;
+  const levelNum = parseInt(levelChoice);
+  const newLevel = (levelNum>=1 && levelNum<=LEVELS.length) ? LEVELS[levelNum-1] : s.level;
+
+  const subjIdx = SUBJECTS.indexOf(s.subject);
+  const subjChoice = prompt('المادة (اكتب رقم من القائمة):\n' + SUBJECTS.map((sub,i)=>`${i+1}. ${sub}`).join('\n'), subjIdx>=0 ? String(subjIdx+1) : '1');
+  if(subjChoice === null) return;
+  const subjNum = parseInt(subjChoice);
+  const newSubject = (subjNum>=1 && subjNum<=SUBJECTS.length) ? SUBJECTS[subjNum-1] : s.subject;
+
+  const newTeacher = prompt('اسم الأستاذ:', s.teacher || '');
+  if(newTeacher === null) return;
+
+  const newLocation = prompt('المكان/المنطقة:', s.location || '');
+  if(newLocation === null) return;
+
+  const newPhone = prompt('رقم الهاتف (اختياري):', s.phone || '');
+  if(newPhone === null) return;
+
+  s.name = newName.trim() || s.name;
+  s.level = newLevel;
+  s.subject = newSubject;
+  s.teacher = newTeacher.trim();
+  s.location = newLocation.trim();
+  s.phone = newPhone.trim();
+  save(); render();
 }
 
 function renderTotals(){
@@ -914,7 +953,7 @@ function renderAttendanceView(){
     return { idx:d, date: dateStr(dt), label: DAY_NAMES[d], sub: fmtDayDate(dt) };
   });
 
-  let html = '<thead><tr><th>التلميذ</th>' + dayDates.map(d => `<th>${d.label}<br><span style="opacity:.7;font-weight:400;">${d.sub}</span></th>`).join('') + '<th>الحصص المؤكدة</th><th>تاريخ الاستخلاص</th><th></th></tr></thead><tbody>';
+  let html = '<thead><tr><th>التلميذ</th>' + dayDates.map(d => `<th>${d.label}<br><span style="opacity:.7;font-weight:400;">${d.sub}</span></th>`).join('') + '<th>الحصص المؤكدة</th><th>تاريخ الاستخلاص</th><th></th><th></th></tr></thead><tbody>';
   html += roster.map(s => {
     const cells = dayDates.map(d => {
       const state = (attendance[key][d.date] || {})[s.id] || '';
@@ -934,6 +973,11 @@ function renderAttendanceView(){
         </button>
       </td>
       <td>
+        <button class="edit-cell" data-sid="${s.id}" title="تعديل بيانات التلميذ (المستوى/المادة/الأستاذ/المكان)" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;">
+          <span class="material-symbols-outlined" style="font-size:19px;">edit</span>
+        </button>
+      </td>
+      <td>
         <button class="del-cell" data-sid="${s.id}" title="حذف التلميذ" style="background:none;border:none;cursor:pointer;color:var(--alert);display:flex;align-items:center;justify-content:center;">
           <span class="material-symbols-outlined" style="font-size:19px;">delete</span>
         </button>
@@ -946,6 +990,9 @@ function renderAttendanceView(){
   table.innerHTML = html;
   table.querySelectorAll('.pay-cell').forEach(btn => {
     btn.addEventListener('click', () => { registerPayment(btn.dataset.sid); renderAttendanceView(); });
+  });
+  table.querySelectorAll('.edit-cell').forEach(btn => {
+    btn.addEventListener('click', () => { editStudent(btn.dataset.sid); renderAttendanceView(); });
   });
   table.querySelectorAll('.del-cell').forEach(btn => {
     btn.addEventListener('click', () => { deleteStudent(btn.dataset.sid); renderAttendanceView(); });
