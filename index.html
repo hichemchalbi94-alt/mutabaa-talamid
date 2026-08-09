@@ -237,6 +237,13 @@
     <button id="printBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:999px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:5px;">
       <span class="material-symbols-outlined" style="font-size:16px;">print</span> طباعة قائمة المستخلصين
     </button>
+    <button id="exportBtn" style="background:var(--sage-ink);color:#fff;border:none;border-radius:999px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <span class="material-symbols-outlined" style="font-size:16px;">download</span> نسخة احتياطية
+    </button>
+    <button id="importBtn" style="background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <span class="material-symbols-outlined" style="font-size:16px;">upload</span> استرجاع نسخة
+    </button>
+    <input id="importFile" type="file" accept="application/json" style="display:none;"/>
   </div>
 
   <div id="studentsList"></div>
@@ -839,6 +846,61 @@ function printPaidList(){
   win.document.close();
 }
 document.getElementById('printBtn').addEventListener('click', printPaidList);
+
+/* ===== نسخة احتياطية (تصدير / استيراد) ===== */
+function exportBackup(){
+  const data = {
+    exportedAt: new Date().toISOString(),
+    app: 'متابعة التلاميذ والاستخلاص',
+    ...currentState()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = todayStr();
+  a.href = url;
+  a.download = `نسخة-احتياطية-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById('exportBtn').addEventListener('click', exportBackup);
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data.students){ alert('هذا الملف لا يبدو نسخة احتياطية صحيحة'); return; }
+      const count = data.students.length;
+      const ok = confirm(`استرجاع هذه النسخة سيستبدل كل بياناتك الحالية بـ ${count} تلميذ من الملف. هل أنت متأكد؟`);
+      if(!ok) return;
+      applyState({
+        students: data.students || [],
+        sections: data.sections || {},
+        attendance: data.attendance || {},
+        pricing: data.pricing || defaultPricing(),
+        lastRosterReview: data.lastRosterReview || null
+      });
+      document.getElementById('newLevel').innerHTML = LEVELS.map(l => `<option value="${l}">${l}</option>`).join('');
+      document.getElementById('newSubject').innerHTML = SUBJECTS.map(s => `<option value="${s}">${s}</option>`).join('');
+      render();
+      renderPricingForm();
+      scheduleSync();
+      alert('تم استرجاع النسخة الاحتياطية بنجاح');
+    }catch(err){
+      alert('تعذّرت قراءة الملف — تأكد أنه ملف نسخة احتياطية صحيح (JSON)');
+    }
+    document.getElementById('importFile').value = '';
+  };
+  reader.readAsText(file);
+});
 
 /* ===== دفتر المناداة ===== */
 const DAY_NAMES = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
