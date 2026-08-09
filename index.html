@@ -225,6 +225,11 @@
   </div>
   <div id="newTeacherHint" style="display:none;font-size:12px;color:var(--ink-soft);background:rgba(18,49,43,.06);border-radius:8px;padding:8px 12px;margin:-8px 0 14px;"></div>
 
+  <div style="position:relative;margin-bottom:14px;">
+    <span class="material-symbols-outlined" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);color:var(--ink-soft);font-size:19px;pointer-events:none;">search</span>
+    <input id="searchInput" type="text" placeholder="ابحث بالاسم..." style="width:100%;padding:11px 42px 11px 14px;border-radius:12px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;background:#fff;box-shadow:var(--shadow-sm);"/>
+  </div>
+
   <div class="filter-tabs" id="filterTabs"></div>
   <div class="filter-tabs" id="subjectTabs"></div>
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
@@ -353,6 +358,7 @@ let currentFilter = "الكل";
 let currentSubjectFilter = "الكل";
 let currentTeacherFilter = "الكل";
 let currentLocationFilter = "الكل";
+let currentSearchQuery = "";
 
 function uid(){ return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 function localDateStr(d){
@@ -589,6 +595,10 @@ function renderStudents(){
   if(currentSubjectFilter !== "الكل") filtered = filtered.filter(s => s.subject === currentSubjectFilter);
   if(currentTeacherFilter !== "الكل") filtered = filtered.filter(s => s.teacher === currentTeacherFilter);
   if(currentLocationFilter !== "الكل") filtered = filtered.filter(s => s.location === currentLocationFilter);
+  if(currentSearchQuery.trim()){
+    const q = currentSearchQuery.trim();
+    filtered = filtered.filter(s => s.name && s.name.includes(q));
+  }
 
   if(filtered.length === 0){
     list.innerHTML = '<div class="empty">لا يوجد تلاميذ في هذه الفئة</div>';
@@ -783,6 +793,10 @@ document.getElementById('teacherFilter').addEventListener('change', (e) => {
 });
 document.getElementById('locationFilter').addEventListener('change', (e) => {
   currentLocationFilter = e.target.value; render();
+});
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  currentSearchQuery = e.target.value;
+  renderStudents();
 });
 
 function printPaidList(){
