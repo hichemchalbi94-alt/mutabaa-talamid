@@ -1080,6 +1080,21 @@ function renderAttendanceView(){
       const cur = attendance[key][d][sid] || '';
       const next = cur === '' ? 'present' : cur === 'present' ? 'absent' : '';
       if(next === '') delete attendance[key][d][sid]; else attendance[key][d][sid] = next;
+
+      // تسجيل/إلغاء الحصة المنجزة آليًا عند التعليم كـ"حاضر"
+      const st = students.find(x => x.id === sid);
+      if(st){
+        const wasPresent = cur === 'present';
+        const isPresent = next === 'present';
+        if(isPresent && !wasPresent){
+          st.sessionsTotal = (st.sessionsTotal||0) + 1;
+          st.sessionsSinceLastPayment = (st.sessionsSinceLastPayment||0) + 1;
+        } else if(wasPresent && !isPresent){
+          st.sessionsTotal = Math.max(0, (st.sessionsTotal||0) - 1);
+          st.sessionsSinceLastPayment = Math.max(0, (st.sessionsSinceLastPayment||0) - 1);
+        }
+      }
+
       saveAttendance();
       renderAttendanceView();
     });
