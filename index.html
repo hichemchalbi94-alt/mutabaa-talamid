@@ -342,6 +342,26 @@
     </div>
   </div>
 </main>
+
+<div id="editModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(11,35,31,.55);z-index:200;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--card);border-radius:18px;padding:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-md);">
+    <h3 style="margin:0 0 14px;font-size:16.5px;display:flex;align-items:center;gap:6px;">
+      <span class="material-symbols-outlined" style="font-size:20px;">edit</span> تعديل بيانات التلميذ
+    </h3>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input id="editName" type="text" placeholder="اسم التلميذ" style="padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;"/>
+      <select id="editLevel" style="padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;background:#fff;"></select>
+      <select id="editSubject" style="padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;background:#fff;"></select>
+      <input id="editTeacher" type="text" list="newTeacherList" placeholder="اسم الأستاذ" style="padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;"/>
+      <input id="editLocation" type="text" list="newLocationList" placeholder="المكان/المنطقة" style="padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;"/>
+      <input id="editPhone" type="tel" placeholder="رقم الهاتف (اختياري)" style="padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;"/>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button id="editCancelBtn" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:700;font-size:13.5px;cursor:pointer;color:var(--ink-soft);">إلغاء</button>
+      <button id="editSaveBtn" style="flex:1;padding:11px;border-radius:10px;border:none;background:linear-gradient(155deg,var(--ink) 0%,var(--ink-2) 100%);color:var(--bg);font-weight:700;font-size:13.5px;cursor:pointer;">حفظ التعديلات</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -647,42 +667,51 @@ function renderStudents(){
   });
 }
 
+let editingStudentId = null;
+
 function editStudent(id){
   const s = students.find(x => x.id === id);
   if(!s) return;
+  editingStudentId = id;
 
-  const newName = prompt('اسم التلميذ:', s.name);
-  if(newName === null) return;
+  document.getElementById('editLevel').innerHTML = LEVELS.map(l => `<option value="${l}">${l}</option>`).join('');
+  document.getElementById('editSubject').innerHTML = SUBJECTS.map(sub => `<option value="${sub}">${sub}</option>`).join('');
 
-  const levelIdx = LEVELS.indexOf(s.level);
-  const levelChoice = prompt('المستوى (اكتب رقم من القائمة):\n' + LEVELS.map((l,i)=>`${i+1}. ${l}`).join('\n'), levelIdx>=0 ? String(levelIdx+1) : '1');
-  if(levelChoice === null) return;
-  const levelNum = parseInt(levelChoice);
-  const newLevel = (levelNum>=1 && levelNum<=LEVELS.length) ? LEVELS[levelNum-1] : s.level;
+  document.getElementById('editName').value = s.name || '';
+  document.getElementById('editLevel').value = s.level || LEVELS[0];
+  document.getElementById('editSubject').value = s.subject || SUBJECTS[0];
+  document.getElementById('editTeacher').value = s.teacher || '';
+  document.getElementById('editLocation').value = s.location || '';
+  document.getElementById('editPhone').value = s.phone || '';
 
-  const subjIdx = SUBJECTS.indexOf(s.subject);
-  const subjChoice = prompt('المادة (اكتب رقم من القائمة):\n' + SUBJECTS.map((sub,i)=>`${i+1}. ${sub}`).join('\n'), subjIdx>=0 ? String(subjIdx+1) : '1');
-  if(subjChoice === null) return;
-  const subjNum = parseInt(subjChoice);
-  const newSubject = (subjNum>=1 && subjNum<=SUBJECTS.length) ? SUBJECTS[subjNum-1] : s.subject;
-
-  const newTeacher = prompt('اسم الأستاذ:', s.teacher || '');
-  if(newTeacher === null) return;
-
-  const newLocation = prompt('المكان/المنطقة:', s.location || '');
-  if(newLocation === null) return;
-
-  const newPhone = prompt('رقم الهاتف (اختياري):', s.phone || '');
-  if(newPhone === null) return;
-
-  s.name = newName.trim() || s.name;
-  s.level = newLevel;
-  s.subject = newSubject;
-  s.teacher = newTeacher.trim();
-  s.location = newLocation.trim();
-  s.phone = newPhone.trim();
-  save(); render();
+  document.getElementById('editModalOverlay').style.display = 'flex';
 }
+
+function closeEditModal(){
+  editingStudentId = null;
+  document.getElementById('editModalOverlay').style.display = 'none';
+}
+
+function saveEditModal(){
+  const s = students.find(x => x.id === editingStudentId);
+  if(!s) { closeEditModal(); return; }
+  const newName = document.getElementById('editName').value.trim();
+  if(!newName){ alert('الرجاء إدخال اسم التلميذ'); return; }
+  s.name = newName;
+  s.level = document.getElementById('editLevel').value;
+  s.subject = document.getElementById('editSubject').value;
+  s.teacher = document.getElementById('editTeacher').value.trim();
+  s.location = document.getElementById('editLocation').value.trim();
+  s.phone = document.getElementById('editPhone').value.trim();
+  save(); render();
+  closeEditModal();
+}
+
+document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+document.getElementById('editSaveBtn').addEventListener('click', saveEditModal);
+document.getElementById('editModalOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'editModalOverlay') closeEditModal();
+});
 
 function renderTotals(){
   const {t,m,y} = computeTotals();
