@@ -340,6 +340,21 @@
     <div class="attendance-wrap">
       <table class="attendance" id="financeTable"></table>
     </div>
+
+    <div class="studydays-box" style="margin-top:18px;">
+      <div class="title">تسجيل خلاص جديد لأستاذ (بطاقة خلاص)</div>
+      <div class="section-form" style="margin-bottom:0;">
+        <input id="payoutTeacher" type="text" list="newTeacherList" placeholder="اسم الأستاذ" autocomplete="off"/>
+        <input id="payoutAmount" type="number" step="0.5" min="0" placeholder="المبلغ المسلَّم (د)"/>
+        <input id="payoutDate" type="date"/>
+        <input id="payoutNote" type="text" placeholder="ملاحظة (اختياري، مثلاً: شهر جويلية)"/>
+      </div>
+      <button id="addPayoutBtn" style="margin-top:10px;background:var(--sage-ink);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:13.5px;cursor:pointer;">+ تسجيل الخلاص</button>
+    </div>
+
+    <div class="attendance-wrap" style="margin-top:14px;">
+      <table class="attendance" id="payoutsTable"></table>
+    </div>
   </div>
 </main>
 
@@ -430,6 +445,7 @@ async function decryptState(payload, key){
 }
 
 let lastRosterReview = null;
+let teacherPayouts = [];
 
 function applyState(state){
   students = state.students || [];
@@ -437,12 +453,14 @@ function applyState(state){
   attendance = state.attendance || {};
   pricing = state.pricing || defaultPricing();
   lastRosterReview = state.lastRosterReview || null;
+  teacherPayouts = state.teacherPayouts || [];
   LEVELS.forEach(l => { if(!pricing[l]) pricing[l] = { price:0, teacher:0, institution:0 }; });
 }
 
 function currentState(){
-  return { students, sections, attendance, pricing, lastRosterReview };
+  return { students, sections, attendance, pricing, lastRosterReview, teacherPayouts };
 }
+
 
 const ROSTER_REVIEW_INTERVAL_DAYS = 14;
 
@@ -1439,6 +1457,97 @@ function renderFinanceView(){
 
 document.getElementById('financeMonth').addEventListener('change', renderFinanceView);
 
+/* ===== بطاقات خلاص الأساتذة ===== */
+function renderPayoutsTable(){
+  const table = document.getElementById('payoutsTable');
+  const sorted = [...teacherPayouts].sort((a,b) => b.date.localeCompare(a.date));
+  if(sorted.length === 0){
+    table.innerHTML = '<tr><td style="padding:16px;">لا يوجد خلاص مسجَّل بعد</td></tr>';
+    return;
+  }
+  let html = '<thead><tr><th>التاريخ</th><th>الأستاذ</th><th>المبلغ</th><th>ملاحظة</th><th></th><th></th></tr></thead><tbody>';
+  html += sorted.map(p => `<tr>
+    <td>${p.date}</td>
+    <td style="text-align:right;">${p.teacher}</td>
+    <td>${fmt(p.amount)} د</td>
+    <td>${p.note||''}</td>
+    <td><button class="payout-print" data-id="${p.id}" style="background:none;border:none;cursor:pointer;color:var(--ink);"><span class="material-symbols-outlined" style="font-size:19px;">print</span></button></td>
+    <td><button class="payout-del" data-id="${p.id}" style="background:none;border:none;cursor:pointer;color:var(--alert);"><span class="material-symbols-outlined" style="font-size:19px;">delete</span></button></td>
+  </tr>`).join('');
+  html += '</tbody>';
+  table.innerHTML = html;
+  table.querySelectorAll('.payout-print').forEach(btn => {
+    btn.addEventListener('click', () => printPayoutSlip(btn.dataset.id));
+  });
+  table.querySelectorAll('.payout-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(!confirm('حذف هذا الخلاص من السجل؟')) return;
+      teacherPayouts = teacherPayouts.filter(p => p.id !== btn.dataset.id);
+      scheduleSync();
+      renderPayoutsTable();
+    });
+  });
+}
+
+document.getElementById('addPayoutBtn').addEventListener('click', () => {
+  const teacher = document.getElementById('payoutTeacher').value.trim();
+  const amount = parseFloat(document.getElementById('payoutAmount').value);
+  const date = document.getElementById('payoutDate').value || todayStr();
+  const note = document.getElementById('payoutNote').value.trim();
+  if(!teacher){ alert('الرجاء إدخال اسم الأستاذ'); return; }
+  if(!amount || amount <= 0){ alert('الرجاء إدخال مبلغ صحيح'); return; }
+  teacherPayouts.push({ id: uid(), teacher, amount, date, note });
+  document.getElementById('payoutTeacher').value = '';
+  document.getElementById('payoutAmount').value = '';
+  document.getElementById('payoutNote').value = '';
+  scheduleSync();
+  renderPayoutsTable();
+});
+
+function printPayoutSlip(id){
+  const p = teacherPayouts.find(x => x.id === id);
+  if(!p) return;
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+    <title>بطاقة خلاص</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Tajawal',sans-serif;padding:30px;color:#12312B;}
+      .card{max-width:480px;margin:0 auto;border:2px solid #12312B;border-radius:14px;padding:26px;}
+      h1{text-align:center;color:#E8622C;font-size:22px;margin:0 0 4px;}
+      .sub{text-align:center;font-size:12px;color:#3C5750;margin-bottom:22px;}
+      .row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed #ccc;font-size:14px;}
+      .row .lbl{color:#3C5750;font-weight:700;}
+      .row .val{font-weight:900;}
+      .amount-box{text-align:center;margin:22px 0;padding:16px;background:#FBEDD3;border-radius:12px;}
+      .amount-box .num{font-size:30px;font-weight:900;color:#12312B;}
+      .amount-box .cur{font-size:13px;color:#8a5a10;}
+      .sign{display:flex;justify-content:space-between;margin-top:36px;font-size:12.5px;}
+      .sign div{width:45%;border-top:1px solid #999;padding-top:6px;text-align:center;color:#3C5750;}
+      @media print{ @page{ margin:14mm; } }
+    </style></head><body>
+    <div class="card">
+      <h1>بطاقة خلاص</h1>
+      <div class="sub">Académie Elsalama — أكاديمية السلامة</div>
+      <div class="row"><span class="lbl">الأستاذ(ة)</span><span class="val">${p.teacher}</span></div>
+      <div class="row"><span class="lbl">التاريخ</span><span class="val">${p.date}</span></div>
+      ${p.note ? `<div class="row"><span class="lbl">ملاحظة</span><span class="val">${p.note}</span></div>` : ''}
+      <div class="amount-box">
+        <div class="num">${fmt(p.amount)}</div>
+        <div class="cur">دينار تونسي</div>
+      </div>
+      <div class="sign">
+        <div>إمضاء الأستاذ(ة)</div>
+        <div>إمضاء الإدارة</div>
+      </div>
+    </div>
+    <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+    </body></html>
+  `);
+  win.document.close();
+}
+
 function printFinanceReport(){
   const month = document.getElementById('financeMonth').value || currentMonthStr();
   const { rows, totals } = computeFinance(month);
@@ -1492,7 +1601,10 @@ document.querySelectorAll('.view-tab').forEach(tab => {
     document.getElementById('financeView').style.display = view === 'finance' ? 'block' : 'none';
     if(view === 'attendance'){ populateAttendanceSelectors(); renderAttendanceView(); }
     if(view === 'groups'){ renderGroupsView(); }
-    if(view === 'finance'){ renderPricingForm(); renderFinanceView(); }
+    if(view === 'finance'){
+      renderPricingForm(); renderFinanceView(); renderPayoutsTable();
+      if(!document.getElementById('payoutDate').value) document.getElementById('payoutDate').value = todayStr();
+    }
   });
 });
 </script>
