@@ -431,6 +431,26 @@ async function deriveKey(password){
     keyMaterial, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
   );
 }
+// مفتاح توافقي بالعدد القديم للتكرار (150000) — لفكّ تشفير بيانات قديمة سُجّلت قبل رفع مستوى الحماية
+async function deriveKeyLegacy(password){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: enc.encode('mutabaa-talamid-salt-v1'), iterations: 150000, hash:'SHA-256' },
+    keyMaterial, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+  );
+}
+// يحاول فكّ التشفير بالمفتاح الجديد أولًا، وإذا فشل يجرب المفتاح القديم تلقائيًا (توافقية مع بيانات قبل رفع الحماية)
+async function decryptStateSmart(payload, password){
+  try{
+    const state = await decryptState(payload, cryptoKey);
+    return { state, key: cryptoKey };
+  }catch(e){
+    const legacyKey = await deriveKeyLegacy(password);
+    const state = await decryptState(payload, legacyKey); // يرمي خطأ إذا كلمة السر غلط فعليًا
+    return { state, key: legacyKey };
+  }
+}
 // معرّف مستند فريد مشتق من كلمة السر نفسها (بصمة SHA-256) — بلا معرفة كلمة السر، ما يقدرش أي حد يخمّن اسم المستند ليقرأه أو يعبث فيه
 async function deriveDocId(password){
   const enc = new TextEncoder();
@@ -522,16 +542,17 @@ async function unlockWithPassword(password){
       docRef = db.collection('mutabaa-app').doc(docId);
       const snap = await docRef.get();
       if(snap.exists){
-        const state = await decryptState(snap.data().payload, cryptoKey); // يفشل إذا كلمة السر غلط
+        const { state, key } = await decryptStateSmart(snap.data().payload, password); // يفشل إذا كلمة السر غلط فعليًا
         applyState(state);
+        if(key !== cryptoKey) await pushToCloud(); // ترقية صامتة لمستوى الحماية الجديد
       } else {
         // ترحيل: تحقّق من وجود بيانات قديمة على المسار العام القديم قبل اعتبار الحساب جديدًا
         const legacyRef = db.collection('mutabaa-app').doc('shared-data');
         const legacySnap = await legacyRef.get();
         if(legacySnap.exists){
-          const state = await decryptState(legacySnap.data().payload, cryptoKey); // يفشل إذا كلمة السر غلط
+          const { state } = await decryptStateSmart(legacySnap.data().payload, password); // يفشل إذا كلمة السر غلط فعليًا
           applyState(state);
-          await pushToCloud(); // نقل البيانات للمسار الآمن الجديد
+          await pushToCloud(); // نقل البيانات للمسار الآمن الجديد بالتشفير الجديد
           await legacyRef.delete().catch(() => {}); // إزالة المسار القديم المكشوف
         } else {
           applyState({ students:[], sections:{}, attendance:{}, pricing: defaultPricing() });
