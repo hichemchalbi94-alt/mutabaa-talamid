@@ -227,7 +227,7 @@
 
   <div style="position:relative;margin-bottom:14px;">
     <span class="material-symbols-outlined" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);color:var(--ink-soft);font-size:19px;pointer-events:none;">search</span>
-    <input id="searchInput" type="text" placeholder="ابحث بالاسم..." style="width:100%;padding:11px 42px 11px 14px;border-radius:12px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;background:#fff;box-shadow:var(--shadow-sm);"/>
+    <input id="searchInput" type="text" placeholder="ابحث بالاسم أو رقم الهاتف..." style="width:100%;padding:11px 42px 11px 14px;border-radius:12px;border:1px solid var(--line);font-family:'Tajawal',sans-serif;font-size:14px;background:#fff;box-shadow:var(--shadow-sm);"/>
   </div>
 
   <div class="filter-tabs" id="filterTabs"></div>
@@ -427,9 +427,15 @@ async function deriveKey(password){
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
-    { name:'PBKDF2', salt: enc.encode('mutabaa-talamid-salt-v1'), iterations: 150000, hash:'SHA-256' },
+    { name:'PBKDF2', salt: enc.encode('mutabaa-talamid-salt-v1'), iterations: 210000, hash:'SHA-256' },
     keyMaterial, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
   );
+}
+// معرّف مستند فريد مشتق من كلمة السر نفسها (بصمة SHA-256) — بلا معرفة كلمة السر، ما يقدرش أي حد يخمّن اسم المستند ليقرأه أو يعبث فيه
+async function deriveDocId(password){
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', enc.encode('mutabaa-doc-id-v1:' + password));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 async function encryptState(obj, key){
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -512,14 +518,25 @@ async function unlockWithPassword(password){
         firebase.initializeApp(FIREBASE_CONFIG);
         db = firebase.firestore();
       }
-      docRef = db.collection('mutabaa-app').doc('shared-data');
+      const docId = await deriveDocId(password);
+      docRef = db.collection('mutabaa-app').doc(docId);
       const snap = await docRef.get();
       if(snap.exists){
         const state = await decryptState(snap.data().payload, cryptoKey); // يفشل إذا كلمة السر غلط
         applyState(state);
       } else {
-        applyState({ students:[], sections:{}, attendance:{}, pricing: defaultPricing() });
-        await pushToCloud();
+        // ترحيل: تحقّق من وجود بيانات قديمة على المسار العام القديم قبل اعتبار الحساب جديدًا
+        const legacyRef = db.collection('mutabaa-app').doc('shared-data');
+        const legacySnap = await legacyRef.get();
+        if(legacySnap.exists){
+          const state = await decryptState(legacySnap.data().payload, cryptoKey); // يفشل إذا كلمة السر غلط
+          applyState(state);
+          await pushToCloud(); // نقل البيانات للمسار الآمن الجديد
+          await legacyRef.delete().catch(() => {}); // إزالة المسار القديم المكشوف
+        } else {
+          applyState({ students:[], sections:{}, attendance:{}, pricing: defaultPricing() });
+          await pushToCloud();
+        }
       }
     } else {
       // إعداد Firebase لم يكتمل بعد — نعمل محليًا مؤقتًا
@@ -635,7 +652,7 @@ function renderStudents(){
   if(currentLocationFilter !== "الكل") filtered = filtered.filter(s => s.location === currentLocationFilter);
   if(currentSearchQuery.trim()){
     const q = currentSearchQuery.trim();
-    filtered = filtered.filter(s => s.name && s.name.includes(q));
+    filtered = filtered.filter(s => (s.name && s.name.includes(q)) || (s.phone && s.phone.includes(q)));
   }
 
   if(filtered.length === 0){
@@ -655,6 +672,7 @@ function renderStudents(){
         <div class="name-block">
           <div class="name">${s.name}</div>
           <div class="level">${s.level} · ${s.subject||''}${s.teacher ? ' · أ. ' + s.teacher : ''}${s.location ? ' · ' + s.location : ''}</div>
+          ${s.phone ? `<div class="level" style="display:flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">call</span> ${s.phone}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <div class="alert-badge"><span class="material-symbols-outlined" style="font-size:14px;">warning</span> ${threshold} حصص دون استخلاص</div>
