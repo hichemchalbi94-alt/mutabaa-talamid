@@ -1215,11 +1215,11 @@ function printAttendanceSheet(){
 
   const fmtShort = (d) => d ? d.slice(8,10)+'/'+d.slice(5,7) : '';
 
-  const headerGroupsHtml = groups.map(g => {
-    const label = g.filter(Boolean).length ? (fmtShort(g[0]) + (g.filter(Boolean).length>1 ? '...' : '')) : '.......';
+  const headerGroupsHtml = groups.map((g, i) => {
+    const label = g.filter(Boolean).length ? `الدورة ${i+1}` : `الدورة ${i+1} (فارغة)`;
     return `<th colspan="4">${label}</th>`;
   }).join('');
-  const subHeaderHtml = groups.map(() => '<th>1</th><th>2</th><th>3</th><th>4</th>').join('');
+  const subHeaderHtml = groups.map(g => g.map(d => `<th>${d ? fmtShort(d) : '--/--'}</th>`).join('')).join('');
 
   const rowsHtml = roster.map((s, idx) => {
     const cells = groups.map(g => g.map(d => {
