@@ -25,7 +25,15 @@
   <textarea id="candidates" placeholder="كلمة سر 1
 كلمة سر 2
 كلمة سر 3"></textarea>
-  <button id="tryBtn">جرّب كل الاحتمالات</button>
+  <button id="tryBtn">جرّب كل الاحتمالات (بحث عادي)</button>
+
+  <div style="margin-top:22px;padding-top:16px;border-top:2px dashed #E4DFD1;">
+    <h1 style="font-size:15px;">🎯 بحث دقيق: معرّف مستند معروف</h1>
+    <p>إذا رحت لـ Firebase Console وشفت معرّف مستند فيه بيانات (كود طويل مثل <code>29e969ec234ba...</code>)، الصقه هنا كامل، وجرّب عليه كل كلمات السر اللي كتبتها فوق مباشرة — بلا حاجة لتخمين اسم المستند.</p>
+    <input id="docIdInput" type="text" placeholder="معرّف المستند (Document ID) من Firebase" style="width:100%;padding:11px;border-radius:10px;border:1px solid #E4DFD1;font-family:'Tajawal',sans-serif;font-size:13px;box-sizing:border-box;margin-top:8px;"/>
+    <button id="tryDocIdBtn" style="background:#215E45;">جرّب كلمات السر على هذا المستند بالذات</button>
+  </div>
+
   <div id="result"></div>
   <div class="log" id="log" style="display:none;"></div>
 </div>
@@ -70,6 +78,55 @@ function log(msg){
   el.textContent += msg + '\n';
   el.scrollTop = el.scrollHeight;
 }
+
+document.getElementById('tryDocIdBtn').addEventListener('click', async () => {
+  const docId = document.getElementById('docIdInput').value.trim();
+  const raw = document.getElementById('candidates').value;
+  const candidates = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  if(!docId){ alert('الصق معرّف المستند أولًا'); return; }
+  if(candidates.length === 0){ alert('اكتب كلمة سر واحدة على الأقل فوق'); return; }
+
+  document.getElementById('tryDocIdBtn').disabled = true;
+  document.getElementById('log').textContent = '';
+  document.getElementById('result').innerHTML = '';
+
+  try{
+    log('جاري جلب المستند: ' + docId + '...');
+    const snap = await db.collection('mutabaa-app').doc(docId).get();
+    if(!snap.exists){
+      log('  → هذا المستند غير موجود! تأكد من نسخ المعرّف بالكامل بلا نقص');
+      document.getElementById('tryDocIdBtn').disabled = false;
+      return;
+    }
+    const payload = snap.data().payload;
+    log('تم العثور على المستند، بدء تجربة كلمات السر...');
+
+    for(const pw of candidates){
+      log('جاري تجربة: "' + pw + '"...');
+      let state = null;
+      for(const iter of [210000, 150000]){
+        try{
+          const key = await deriveKey(pw, iter);
+          state = await decryptState(payload, key);
+          break;
+        }catch(e){ /* جرب العدد التالي */ }
+      }
+      if(state){
+        const count = (state.students||[]).length;
+        log('  ✅ نجحت!');
+        document.getElementById('result').innerHTML = `<div class="ok">🎉 كلمة السر الصحيحة هي: "${pw}"<br>عدد التلاميذ: ${count}</div>`;
+        document.getElementById('tryDocIdBtn').disabled = false;
+        return;
+      } else {
+        log('  → غلط');
+      }
+    }
+    document.getElementById('result').innerHTML = '<div class="warn">ما لقيناش كلمة سر من القائمة تفتح هذا المستند. زيد احتمالات أكثر.</div>';
+  }catch(e){
+    log('خطأ: ' + e.message);
+  }
+  document.getElementById('tryDocIdBtn').disabled = false;
+});
 
 document.getElementById('tryBtn').addEventListener('click', async () => {
   const raw = document.getElementById('candidates').value;
